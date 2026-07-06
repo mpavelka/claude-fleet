@@ -15,6 +15,12 @@ DB_PATH = os.path.abspath(
     os.environ.get("FLEET_DB", os.path.expanduser("~/.claude-fleet/fleet.db"))
 )
 
+# Per-instance secret material (git credential files) lives here, OUTSIDE any
+# working tree, one subdir per instance. Never committed, never in the pane log.
+SECRETS_ROOT = os.path.abspath(
+    os.environ.get("FLEET_SECRETS", os.path.expanduser("~/.claude-fleet/secrets"))
+)
+
 # The command tmux runs inside each instance's working tree. This is the one
 # thing to verify against your installed `claude` version -- see README.
 CLAUDE_RC_CMD = os.environ.get("CLAUDE_RC_CMD", "claude remote-control")

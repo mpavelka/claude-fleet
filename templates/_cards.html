@@ -19,6 +19,9 @@
     <div class="repo" title="{{ i.repo_url }}">{{ i.repo_url }}</div>
     {% endif %}
     <div class="path" title="{{ i.workdir }}">{{ i.workdir }}</div>
+    {% if i.credential_name %}
+    <div class="cred-tag">🔑 {{ i.credential_name }}</div>
+    {% endif %}
 
     {% if i.running and i.relay_url %}
     <div class="relay">

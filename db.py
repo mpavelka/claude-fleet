@@ -41,14 +41,33 @@ def init() -> None:
             )
             """
         )
+        c.execute(
+            """
+            CREATE TABLE IF NOT EXISTS credentials (
+                id          TEXT PRIMARY KEY,
+                name        TEXT NOT NULL,
+                host        TEXT NOT NULL,
+                username    TEXT NOT NULL,
+                secret_enc  TEXT NOT NULL,
+                git_name    TEXT,
+                git_email   TEXT,
+                created_at  TEXT NOT NULL
+            )
+            """
+        )
+        # Migration: record which credential an instance was spawned with.
+        cols = [r[1] for r in c.execute("PRAGMA table_info(instances)")]
+        if "credential_id" not in cols:
+            c.execute("ALTER TABLE instances ADD COLUMN credential_id TEXT")
 
 
-def add_instance(iid, name, repo_url, workdir, tmux_session) -> None:
+def add_instance(iid, name, repo_url, workdir, tmux_session, credential_id=None) -> None:
     with _connect() as c:
         c.execute(
-            "INSERT INTO instances (id, name, repo_url, workdir, tmux_session, created_at) "
-            "VALUES (?, ?, ?, ?, ?, ?)",
-            (iid, name, repo_url, workdir, tmux_session, _now()),
+            "INSERT INTO instances "
+            "(id, name, repo_url, workdir, tmux_session, credential_id, created_at) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?)",
+            (iid, name, repo_url, workdir, tmux_session, credential_id, _now()),
         )
 
 
@@ -85,3 +104,31 @@ def mark_stopped(iid) -> None:
 def delete(iid) -> None:
     with _connect() as c:
         c.execute("DELETE FROM instances WHERE id = ?", (iid,))
+
+
+# --------------------------------------------------------------------------- #
+# Credentials (secrets stored encrypted; see crypto.py)
+# --------------------------------------------------------------------------- #
+def add_credential(cid, name, host, username, secret_enc, git_name, git_email) -> None:
+    with _connect() as c:
+        c.execute(
+            "INSERT INTO credentials "
+            "(id, name, host, username, secret_enc, git_name, git_email, created_at) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            (cid, name, host, username, secret_enc, git_name, git_email, _now()),
+        )
+
+
+def all_credentials() -> list[sqlite3.Row]:
+    with _connect() as c:
+        return c.execute("SELECT * FROM credentials ORDER BY name").fetchall()
+
+
+def get_credential(cid) -> sqlite3.Row | None:
+    with _connect() as c:
+        return c.execute("SELECT * FROM credentials WHERE id = ?", (cid,)).fetchone()
+
+
+def delete_credential(cid) -> None:
+    with _connect() as c:
+        c.execute("DELETE FROM credentials WHERE id = ?", (cid,))

@@ -4,6 +4,7 @@ shared X-Auth-Token header as defense-in-depth.
 """
 import io
 import os
+import uuid
 from contextlib import asynccontextmanager
 
 import qrcode
@@ -14,6 +15,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
 import config
+import crypto
 import db
 import manager
 
@@ -47,7 +49,13 @@ async def _auth(request: Request, call_next):
 # --------------------------------------------------------------------------- #
 @app.get("/", response_class=HTMLResponse)
 def index(request: Request):
-    return _render(request, "index.html", instances=manager.list_instances())
+    return _render(
+        request,
+        "index.html",
+        instances=manager.list_instances(),
+        credentials=db.all_credentials(),
+        secret_ready=crypto.available(),
+    )
 
 
 @app.get("/partials/instances", response_class=HTMLResponse)
@@ -59,10 +67,15 @@ def instances_partial(request: Request):
 # Actions (htmx posts these and swaps in the refreshed card grid)
 # --------------------------------------------------------------------------- #
 @app.post("/instances", response_class=HTMLResponse)
-def create_instance(request: Request, repo_url: str = Form(...), name: str = Form("")):
+def create_instance(
+    request: Request,
+    repo_url: str = Form(...),
+    name: str = Form(""),
+    credential_id: str = Form(""),
+):
     error = None
     try:
-        manager.spawn(repo_url, name)
+        manager.spawn(repo_url, name, credential_id or None)
     except manager.SpawnError as exc:
         error = str(exc)
     return _render(request, "_cards.html", instances=manager.list_instances(), error=error)
@@ -82,6 +95,47 @@ def cleanup_instance(request: Request, workdir: str = Form(...)):
     except ValueError as exc:
         error = str(exc)
     return _render(request, "_cards.html", instances=manager.list_instances(), error=error)
+
+
+# --------------------------------------------------------------------------- #
+# Credentials (secrets encrypted at rest; the token is never rendered back)
+# --------------------------------------------------------------------------- #
+def _refresh() -> Response:
+    """Tell htmx to reload the page so both the credential list and the spawn
+    dropdown reflect the change."""
+    return Response(status_code=204, headers={"HX-Refresh": "true"})
+
+
+@app.post("/credentials")
+def create_credential(
+    name: str = Form(...),
+    host: str = Form(...),
+    username: str = Form(...),
+    token: str = Form(...),
+    git_name: str = Form(""),
+    git_email: str = Form(""),
+):
+    if not crypto.available():
+        raise HTTPException(
+            status_code=400,
+            detail="FLEET_SECRET_KEY is not set; cannot store credentials.",
+        )
+    db.add_credential(
+        uuid.uuid4().hex[:12],
+        name.strip(),
+        host.strip(),
+        username.strip(),
+        crypto.encrypt(token),
+        git_name.strip() or None,
+        git_email.strip() or None,
+    )
+    return _refresh()
+
+
+@app.post("/credentials/{cid}/delete")
+def delete_credential(cid: str):
+    db.delete_credential(cid)
+    return _refresh()
 
 
 # --------------------------------------------------------------------------- #

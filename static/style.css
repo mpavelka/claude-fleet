@@ -104,3 +104,42 @@ button.cleanup { background: transparent; color: var(--amber); border: 1px solid
 
 .actions { margin-top: auto; padding-top: .5rem; }
 .actions form { margin: 0; }
+
+.cred-tag { font-size: .78rem; color: var(--muted); }
+
+.new select {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: .55rem .6rem;
+  border-radius: 8px;
+}
+
+.creds { margin-top: 2.5rem; border-top: 1px solid var(--border); padding-top: 1.5rem; }
+.creds h2 { font-size: 1.1rem; margin: 0 0 1rem; }
+.muted { color: var(--muted); }
+
+.cred-list { display: flex; flex-direction: column; gap: .5rem; margin-bottom: 1rem; }
+.cred-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: .6rem .8rem;
+}
+.cred-name { font-weight: 600; margin-right: .5rem; }
+.cred-meta { color: var(--muted); font-size: .82rem; }
+.cred-row .del { background: transparent; color: var(--red); border: 1px solid var(--red); padding: .3rem .7rem; }
+
+.cred-form { display: flex; gap: .5rem; flex-wrap: wrap; }
+.cred-form input {
+  flex: 1 1 160px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: .5rem .65rem;
+  border-radius: 8px;
+}

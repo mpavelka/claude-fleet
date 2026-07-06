@@ -29,6 +29,10 @@ link and QR code surfaced in the UI.
 cd claude-fleet
 python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
+
+# Needed only if you want to store GitLab credentials (see below):
+export FLEET_SECRET_KEY="$(python crypto.py)"   # persist this somewhere safe
+
 python app.py            # serves on 127.0.0.1:8700 by default
 ```
 
@@ -50,12 +54,36 @@ As defense-in-depth, set `FLEET_AUTH_TOKEN` and have the proxy inject the same
 value in the `X-Auth-Token` header (the Caddyfile shows this). Then even a
 misconfigured firewall exposing port 8700 won't hand out shells.
 
+## Per-instance GitLab credentials
+
+Each instance can authenticate to GitLab as its own identity. You curate a pool
+of credentials in the UI and pick one when spawning an instance.
+
+- **Storage** — each credential is a GitLab access token (Personal, Project, or
+  Group). Tokens are encrypted at rest with `FLEET_SECRET_KEY` (Fernet); the key
+  never touches the database. Without the key set, credential features are
+  disabled but the rest of the app runs.
+- **Injection** — on spawn, the token is written to a `git credential-store` file
+  **outside the working tree** (mode 0600), and that clone's *local* git config
+  is pointed at it (inherited global helpers are reset first, so instances stay
+  isolated). The token never appears on a command line, in `.git/config`, or in
+  the relay log. Any `git` command Claude runs authenticates automatically.
+- **Commit identity** — a credential's optional name/email are set as the clone's
+  local `user.name`/`user.email`, so the agent *commits* as its own identity too.
+- **Cleanup** — removing an instance's working tree also deletes its secret file.
+
+The token username depends on the token type (your username for a PAT, the token
+name for Project/Group tokens). Give the repo URL over HTTPS (SSH URLs are
+auto-converted to HTTPS when a credential is attached).
+
 ## Configuration (environment variables)
 
 | Variable           | Default                          | Purpose                                        |
 |--------------------|----------------------------------|------------------------------------------------|
 | `FLEET_ROOT`       | `~/.claude-fleet/instances`      | Where per-instance clones live                 |
 | `FLEET_DB`         | `~/.claude-fleet/fleet.db`       | SQLite state file                              |
+| `FLEET_SECRETS`    | `~/.claude-fleet/secrets`        | Per-instance git credential files (0600)       |
+| `FLEET_SECRET_KEY` | _(unset)_                        | Fernet key encrypting credentials; `python crypto.py` mints one |
 | `FLEET_HOST`       | `127.0.0.1`                      | Bind address (keep loopback in production)     |
 | `FLEET_PORT`       | `8700`                           | Bind port                                      |
 | `FLEET_AUTH_TOKEN` | _(unset)_                        | If set, required in `X-Auth-Token` header      |
