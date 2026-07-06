@@ -129,8 +129,8 @@ def spawn(repo_url: str, name: str | None, credential_id: str | None = None) -> 
     clone_url = repo_url
     if cred is not None:
         token = crypto.decrypt(cred["secret_enc"])
-        # The GitLab host comes from the repo URL (it isn't encoded in the
-        # token); an optional stored host is only a fallback for odd URLs.
+        # The git host comes from the repo URL (it isn't encoded in the token);
+        # an optional stored host is only a fallback for odd URLs.
         fallback_host = cred["host"] if "host" in cred.keys() else ""
         clone_url = _to_https(repo_url, fallback_host)
         host = urlsplit(clone_url).hostname or fallback_host

@@ -22,12 +22,12 @@
   <section class="new">
     <form hx-post="/instances" hx-target="#instances" hx-swap="innerHTML"
           hx-on::after-request="if(event.detail.successful) this.reset()">
-      <input type="text" name="repo_url" placeholder="https://gitlab.example.com/group/repo.git" required>
+      <input type="text" name="repo_url" placeholder="https://github.com/you/repo.git" required>
       <input type="text" name="name" placeholder="label (optional)">
       <select name="credential_id">
         <option value="">no credential (public repo)</option>
         {% for c in credentials %}
-        <option value="{{ c.id }}">{{ c.name }}</option>
+        <option value="{{ c.id }}">{{ c.name }} ({{ "GitHub" if c.provider == "github" else "GitLab" if c.provider == "gitlab" else "git" }})</option>
         {% endfor %}
       </select>
       <button type="submit">Clone &amp; spawn</button>
@@ -44,7 +44,7 @@
   </main>
 
   <section class="creds">
-    <h2>GitLab credentials</h2>
+    <h2>Git credentials</h2>
     {% if not secret_ready %}
     <div class="error">
       <code>FLEET_SECRET_KEY</code> is not set, so credentials can't be stored.

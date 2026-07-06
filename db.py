@@ -59,6 +59,10 @@ def init() -> None:
         cols = [r[1] for r in c.execute("PRAGMA table_info(instances)")]
         if "credential_id" not in cols:
             c.execute("ALTER TABLE instances ADD COLUMN credential_id TEXT")
+        # Migration: which git provider a credential targets (github|gitlab).
+        cred_cols = [r[1] for r in c.execute("PRAGMA table_info(credentials)")]
+        if "provider" not in cred_cols:
+            c.execute("ALTER TABLE credentials ADD COLUMN provider TEXT")
 
 
 def add_instance(iid, name, repo_url, workdir, tmux_session, credential_id=None) -> None:
@@ -109,13 +113,13 @@ def delete(iid) -> None:
 # --------------------------------------------------------------------------- #
 # Credentials (secrets stored encrypted; see crypto.py)
 # --------------------------------------------------------------------------- #
-def add_credential(cid, name, host, username, secret_enc, git_name, git_email) -> None:
+def add_credential(cid, name, provider, host, username, secret_enc, git_name, git_email) -> None:
     with _connect() as c:
         c.execute(
             "INSERT INTO credentials "
-            "(id, name, host, username, secret_enc, git_name, git_email, created_at) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-            (cid, name, host, username, secret_enc, git_name, git_email, _now()),
+            "(id, name, provider, host, username, secret_enc, git_name, git_email, created_at) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (cid, name, provider, host, username, secret_enc, git_name, git_email, _now()),
         )
 
 

@@ -201,6 +201,17 @@ button.cleanup { background: transparent; color: var(--amber); border: 1px solid
 }
 .cred-name { font-weight: 600; margin-right: .5rem; }
 .cred-meta { color: var(--muted); font-size: .82rem; }
+.provider-badge {
+  display: inline-block;
+  font-size: .68rem;
+  font-weight: 600;
+  padding: .1rem .45rem;
+  border-radius: 999px;
+  margin-right: .5rem;
+  border: 1px solid var(--border);
+}
+.provider-github { background: #24292f; color: #fff; }
+.provider-gitlab { background: #fc6d26; color: #1f1300; }
 .cred-row .del { background: transparent; color: var(--red); border: 1px solid var(--red); padding: .3rem .7rem; }
 
 .cred-form { display: flex; flex-direction: column; gap: .6rem; }
@@ -211,6 +222,14 @@ button.cleanup { background: transparent; color: var(--amber); border: 1px solid
   border: 1px solid var(--border);
   color: var(--text);
   padding: .5rem .65rem;
+  border-radius: 8px;
+}
+.cred-form select {
+  flex: 0 0 auto;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: .5rem .6rem;
   border-radius: 8px;
 }
 .cred-advanced { border: 1px solid var(--border); border-radius: 8px; padding: .5rem .75rem; }

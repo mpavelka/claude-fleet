@@ -126,8 +126,10 @@ def _refresh() -> Response:
 def create_credential(
     name: str = Form(...),
     token: str = Form(...),
+    provider: str = Form("github"),
     # Advanced (all optional): host is derived from each repo URL at spawn time;
-    # username defaults to oauth2 (works for GitLab PATs; set it for deploy tokens).
+    # username defaults to oauth2 (works for GitHub/GitLab tokens; set it for a
+    # deploy token).
     host: str = Form(""),
     username: str = Form(""),
     git_name: str = Form(""),
@@ -138,9 +140,13 @@ def create_credential(
             status_code=400,
             detail="FLEET_SECRET_KEY is not set; cannot store credentials.",
         )
+    provider = provider.strip().lower()
+    if provider not in ("github", "gitlab"):
+        provider = "github"
     db.add_credential(
         uuid.uuid4().hex[:12],
         name.strip(),
+        provider,
         host.strip(),
         username.strip() or "oauth2",
         crypto.encrypt(token),

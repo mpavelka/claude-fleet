@@ -90,19 +90,25 @@ probes the tools and services the app depends on: `tmux`, `git`, `claude`
 one's version and flags anything missing or degraded (e.g. docker installed but
 the daemon isn't running). It refreshes every 15s while expanded.
 
-## Per-instance GitLab credentials
+## Per-instance git credentials
 
-Each instance can authenticate to GitLab as its own identity. You curate a pool
-of credentials in the UI and pick one when spawning an instance.
+Each instance can authenticate to its git host as its own identity. You curate a
+pool of credentials in the UI and pick one when spawning an instance. Both
+**GitHub** and **GitLab** are supported — and because the host comes from the
+repo URL, GitLab.com and self-hosted GitLab work the same way.
 
-**Adding one only needs a label and a token** — everything else is derived or
-defaulted (tucked behind *Advanced*):
+**Adding one only needs a provider, label and token** — everything else is
+derived or defaulted (tucked behind *Advanced*):
 
+- **Provider** (GitHub/GitLab) is just a label to help you tell credentials
+  apart; it's shown as a badge in the list and the spawn dropdown.
 - **Host** is taken from each repo's URL at spawn time (it isn't encoded in the
-  token), so you never type it. SSH URLs are auto-converted to HTTPS.
-- **Username** defaults to `oauth2`, which works for Personal/Project/Group
-  access tokens. Only *deploy tokens* need a specific username — set it under
-  Advanced.
+  token), so you never type it — that's what makes self-hosted GitLab "just
+  work". SSH URLs are auto-converted to HTTPS.
+- **Username** defaults to `oauth2`, which works for GitHub PATs and GitLab
+  personal/project/group tokens (both hosts authenticate by the token, not the
+  username). Only a GitLab *deploy token* needs a specific username — set it
+  under Advanced.
 - **Commit identity** (`user.name`/`user.email`) is optional and also under
   Advanced; when set, the agent *commits* as that identity, not just pushes.
 
