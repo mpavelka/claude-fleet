@@ -203,12 +203,18 @@ button.cleanup { background: transparent; color: var(--amber); border: 1px solid
 .cred-meta { color: var(--muted); font-size: .82rem; }
 .cred-row .del { background: transparent; color: var(--red); border: 1px solid var(--red); padding: .3rem .7rem; }
 
-.cred-form { display: flex; gap: .5rem; flex-wrap: wrap; }
+.cred-form { display: flex; flex-direction: column; gap: .6rem; }
+.cred-form-main, .cred-form-adv { display: flex; gap: .5rem; flex-wrap: wrap; }
 .cred-form input {
-  flex: 1 1 160px;
+  flex: 1 1 200px;
   background: var(--panel);
   border: 1px solid var(--border);
   color: var(--text);
   padding: .5rem .65rem;
   border-radius: 8px;
 }
+.cred-advanced { border: 1px solid var(--border); border-radius: 8px; padding: .5rem .75rem; }
+.cred-advanced summary { cursor: pointer; font-size: .85rem; color: var(--muted); user-select: none; }
+.cred-advanced[open] summary { margin-bottom: .5rem; }
+.cred-advanced p.muted { font-size: .78rem; margin: 0 0 .6rem; }
+.cred-advanced code { background: var(--bg); padding: .05rem .3rem; border-radius: 4px; }

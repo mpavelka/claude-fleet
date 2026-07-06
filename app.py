@@ -125,9 +125,11 @@ def _refresh() -> Response:
 @app.post("/credentials")
 def create_credential(
     name: str = Form(...),
-    host: str = Form(...),
-    username: str = Form(...),
     token: str = Form(...),
+    # Advanced (all optional): host is derived from each repo URL at spawn time;
+    # username defaults to oauth2 (works for GitLab PATs; set it for deploy tokens).
+    host: str = Form(""),
+    username: str = Form(""),
     git_name: str = Form(""),
     git_email: str = Form(""),
 ):
@@ -140,7 +142,7 @@ def create_credential(
         uuid.uuid4().hex[:12],
         name.strip(),
         host.strip(),
-        username.strip(),
+        username.strip() or "oauth2",
         crypto.encrypt(token),
         git_name.strip() or None,
         git_email.strip() or None,

@@ -95,22 +95,31 @@ the daemon isn't running). It refreshes every 15s while expanded.
 Each instance can authenticate to GitLab as its own identity. You curate a pool
 of credentials in the UI and pick one when spawning an instance.
 
-- **Storage** — each credential is a GitLab access token (Personal, Project, or
-  Group). Tokens are encrypted at rest with `FLEET_SECRET_KEY` (Fernet); the key
-  never touches the database. Without the key set, credential features are
-  disabled but the rest of the app runs.
+**Adding one only needs a label and a token** — everything else is derived or
+defaulted (tucked behind *Advanced*):
+
+- **Host** is taken from each repo's URL at spawn time (it isn't encoded in the
+  token), so you never type it. SSH URLs are auto-converted to HTTPS.
+- **Username** defaults to `oauth2`, which works for Personal/Project/Group
+  access tokens. Only *deploy tokens* need a specific username — set it under
+  Advanced.
+- **Commit identity** (`user.name`/`user.email`) is optional and also under
+  Advanced; when set, the agent *commits* as that identity, not just pushes.
+
+Under the hood:
+
+- **Storage** — the token is encrypted at rest with `FLEET_SECRET_KEY` (Fernet);
+  the key never touches the database. Without the key set, credential features
+  are disabled but the rest of the app runs.
 - **Injection** — on spawn, the token is written to a `git credential-store` file
   **outside the working tree** (mode 0600), and that clone's *local* git config
   is pointed at it (inherited global helpers are reset first, so instances stay
   isolated). The token never appears on a command line, in `.git/config`, or in
   the relay log. Any `git` command Claude runs authenticates automatically.
-- **Commit identity** — a credential's optional name/email are set as the clone's
-  local `user.name`/`user.email`, so the agent *commits* as its own identity too.
 - **Cleanup** — removing an instance's working tree also deletes its secret file.
 
-The token username depends on the token type (your username for a PAT, the token
-name for Project/Group tokens). Give the repo URL over HTTPS (SSH URLs are
-auto-converted to HTTPS when a credential is attached).
+The UI lives in `templates/_credential_list.html` (the pool) and
+`templates/_credential_form.html` (the add form).
 
 ## Configuration
 
