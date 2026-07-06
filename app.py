@@ -14,6 +14,7 @@ from fastapi.responses import HTMLResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
+import auth_claude
 import config
 import crypto
 import db
@@ -38,6 +39,13 @@ def _render(request: Request, name: str, **context) -> HTMLResponse:
     return templates.TemplateResponse(request, name, context)
 
 
+def _qr_response(url: str) -> Response:
+    img = qrcode.make(url, image_factory=qrcode.image.svg.SvgImage)
+    buf = io.BytesIO()
+    img.save(buf)
+    return Response(buf.getvalue(), media_type="image/svg+xml")
+
+
 @app.middleware("http")
 async def _auth(request: Request, call_next):
     if config.AUTH_TOKEN and request.headers.get("X-Auth-Token") != config.AUTH_TOKEN:
@@ -57,6 +65,7 @@ def index(request: Request):
         credentials=db.all_credentials(),
         secret_ready=crypto.available(),
         health=health.check(),
+        claude=auth_claude.login_state(),
     )
 
 
@@ -153,10 +162,42 @@ def qr_svg(iid: str):
     row = db.get(iid)
     if row is None or not row["relay_url"]:
         raise HTTPException(status_code=404, detail="No relay URL yet.")
-    img = qrcode.make(row["relay_url"], image_factory=qrcode.image.svg.SvgImage)
-    buf = io.BytesIO()
-    img.save(buf)
-    return Response(buf.getvalue(), media_type="image/svg+xml")
+    return _qr_response(row["relay_url"])
+
+
+# --------------------------------------------------------------------------- #
+# Claude account (server-wide browser OAuth login)
+# --------------------------------------------------------------------------- #
+@app.get("/partials/claude", response_class=HTMLResponse)
+def claude_partial(request: Request):
+    return _render(request, "_claude_auth.html", claude=auth_claude.login_state())
+
+
+@app.post("/claude/login", response_class=HTMLResponse)
+def claude_login(request: Request):
+    auth_claude.start_login()
+    return _render(request, "_claude_auth.html", claude=auth_claude.login_state())
+
+
+@app.post("/claude/code", response_class=HTMLResponse)
+def claude_code(request: Request, code: str = Form(...)):
+    ok = auth_claude.submit_code(code)
+    error = None if ok else "Code not accepted (or still processing). Check it and try again."
+    return _render(request, "_claude_auth.html", claude=auth_claude.login_state(error))
+
+
+@app.post("/claude/logout", response_class=HTMLResponse)
+def claude_logout(request: Request):
+    auth_claude.logout()
+    return _render(request, "_claude_auth.html", claude=auth_claude.login_state())
+
+
+@app.get("/claude/login-qr.svg")
+def claude_login_qr():
+    url = auth_claude.login_url()
+    if not url:
+        raise HTTPException(status_code=404, detail="No login URL yet.")
+    return _qr_response(url)
 
 
 if __name__ == "__main__":

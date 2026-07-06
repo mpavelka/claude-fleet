@@ -1,0 +1,34 @@
+{% if claude.phase == "in" %}
+<div class="claude-in">
+  <span class="dot state-ok"></span>
+  Signed in as <strong>{{ claude.status.email }}</strong>
+  <span class="cred-meta">{{ claude.status.subscriptionType }} &middot; {{ claude.status.authMethod }}</span>
+  <button class="del" hx-post="/claude/logout" hx-target="#claude-auth" hx-swap="innerHTML"
+          hx-confirm="Sign out of Claude on this server? Running instances keep their session.">Sign out</button>
+</div>
+
+{% elif claude.phase == "pending" %}
+<div class="claude-pending">
+  {% if claude.url %}
+  <p>1. Open this link in your browser and approve access:</p>
+  <a class="oauth-link" href="{{ claude.url }}" target="_blank" rel="noopener">{{ claude.url }}</a>
+  <img class="qr" src="/claude/login-qr.svg?ts={{ claude.url | length }}" width="140" height="140" alt="Login QR code">
+  <p>2. Paste the authorization code it shows you:</p>
+  {% else %}
+  <p class="muted">Starting login&hellip; if nothing appears,
+    <a href="#" hx-post="/claude/login" hx-target="#claude-auth" hx-swap="innerHTML">retry</a>.</p>
+  {% endif %}
+  <form class="code-form" hx-post="/claude/code" hx-target="#claude-auth" hx-swap="innerHTML">
+    <input type="text" name="code" placeholder="paste authorization code" required autocomplete="off">
+    <button type="submit">Submit code</button>
+  </form>
+  <button class="del" hx-post="/claude/logout" hx-target="#claude-auth" hx-swap="innerHTML">Cancel</button>
+  {% if claude.error %}<div class="error">{{ claude.error }}</div>{% endif %}
+</div>
+
+{% else %}
+<div class="claude-out">
+  <span class="dot state-warn"></span> Not signed in to Claude.
+  <button hx-post="/claude/login" hx-target="#claude-auth" hx-swap="innerHTML">Sign in to Claude</button>
+</div>
+{% endif %}

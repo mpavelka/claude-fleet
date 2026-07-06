@@ -34,6 +34,11 @@
     </form>
   </section>
 
+  <section class="account">
+    <h2>Claude account</h2>
+    <div id="claude-auth">{% include "_claude_auth.html" %}</div>
+  </section>
+
   <main id="instances" hx-get="/partials/instances" hx-trigger="every 3s" hx-swap="innerHTML">
     {% include "_cards.html" %}
   </main>

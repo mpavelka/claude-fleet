@@ -59,6 +59,31 @@ def _probe_docker() -> dict:
     return item
 
 
+def _probe_claude_account() -> dict:
+    """Whether the server is signed in to a Claude account (required to spawn
+    remote-control sessions)."""
+    import auth_claude
+
+    st = auth_claude.status()
+    if st.get("loggedIn"):
+        return {
+            "name": "claude account",
+            "required": False,
+            "path": None,
+            "version": st.get("email") or "signed in",
+            "detail": st.get("subscriptionType"),
+            "state": "ok",
+        }
+    return {
+        "name": "claude account",
+        "required": False,
+        "path": None,
+        "version": None,
+        "detail": "not signed in — use the Claude account section",
+        "state": "warn",
+    }
+
+
 def _probe_secret_key() -> dict:
     """Not a binary, but a service dependency: without it credential storage is
     disabled."""
@@ -81,6 +106,7 @@ def check() -> dict:
         _probe_tool("tmux", ["-V"], required=True),
         _probe_tool("git", ["--version"], required=True),
         _probe_tool("claude", ["--version"], required=True),
+        _probe_claude_account(),
         _probe_docker(),
         _probe_secret_key(),
     ]

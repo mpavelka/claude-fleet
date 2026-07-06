@@ -54,6 +54,24 @@ As defense-in-depth, set `FLEET_AUTH_TOKEN` and have the proxy inject the same
 value in the `X-Auth-Token` header (the Caddyfile shows this). Then even a
 misconfigured firewall exposing port 8700 won't hand out shells.
 
+## Claude account (sign-in)
+
+`claude remote-control` requires the server to be signed in to a Claude account
+with a subscription. The **Claude account** section lets you do this from the
+browser — no SSH or port forwarding needed, even on a headless server:
+
+1. Click **Sign in to Claude**. The backend runs `claude auth login` in a tmux
+   session and scrapes the authorization URL.
+2. Open the shown link (or scan the QR) in your browser and approve access.
+   The OAuth flow redirects to a hosted Claude page that displays an
+   authorization **code** (it does *not* rely on a localhost callback).
+3. Paste that code back into the dashboard. The backend delivers it to the
+   login session and polls until you're signed in, then shows the account.
+
+This is a single server-wide login (the default config dir); every instance
+shares it. Credentials land in `~/.claude/.credentials.json` (Linux) or the
+Keychain (macOS) — the dashboard never stores them itself.
+
 ## Environment status
 
 The header has an **Environment** indicator (a colored dot you can expand) that
@@ -98,12 +116,22 @@ auto-converted to HTTPS when a credential is attached).
 | `CLAUDE_RC_CMD`    | `claude remote-control`          | Command launched inside each working tree      |
 | `RELAY_REGEX`      | `https?://\S+`                   | Pattern used to extract the relay URL from logs|
 
-## The one assumption to verify
+## Remote-control spawn — known gaps
 
 The relay URL is captured by mirroring the tmux pane to `<workdir>/.relay.log`
-(via `tmux pipe-pane`) and scanning it with `RELAY_REGEX`. If your `claude`
-version prints the remote-control URL differently, adjust `CLAUDE_RC_CMD` and/or
-`RELAY_REGEX` — no code change needed. To debug a session by hand:
+(via `tmux pipe-pane`) and scanning it with `RELAY_REGEX`. Verified against
+`claude` v2.1.92, the current `claude remote-control` behaviour is:
+
+- It shows an interactive **`Enable Remote Control? (y/n)`** prompt on start —
+  the spawn code does **not yet** answer it, so a real remote-control instance
+  will wait at that prompt. Answering needs `tmux send-keys -t <session> y Enter`.
+- After confirming, it prints `https://claude.ai/code/session_<id>` (so a
+  tighter `RELAY_REGEX` is `https://claude\.ai/code/session_\S+`).
+- It requires a signed-in subscription account (see **Claude account** above)
+  and the workspace-trust dialog accepted for the directory — fresh clones
+  aren't trusted yet.
+
+Wiring these three up is the next task. To debug a session by hand:
 
 ```sh
 tmux attach -t claude-<instance-id>

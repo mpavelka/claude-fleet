@@ -159,8 +159,33 @@ button.cleanup { background: transparent; color: var(--amber); border: 1px solid
   border-radius: 8px;
 }
 
-.creds { margin-top: 2.5rem; border-top: 1px solid var(--border); padding-top: 1.5rem; }
-.creds h2 { font-size: 1.1rem; margin: 0 0 1rem; }
+.creds, .account { margin-top: 2.5rem; border-top: 1px solid var(--border); padding-top: 1.5rem; }
+.creds h2, .account h2 { font-size: 1.1rem; margin: 0 0 1rem; }
+
+/* Claude account */
+.claude-in, .claude-out { display: flex; align-items: center; gap: .6rem; flex-wrap: wrap; }
+.claude-pending {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: .6rem;
+  max-width: 560px;
+}
+.claude-pending p { margin: 0; font-size: .9rem; }
+.oauth-link { color: var(--accent); word-break: break-all; font-size: .8rem; }
+.code-form { display: flex; gap: .5rem; flex-wrap: wrap; }
+.code-form input {
+  flex: 1 1 240px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: .5rem .65rem;
+  border-radius: 8px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
 .muted { color: var(--muted); }
 
 .cred-list { display: flex; flex-direction: column; gap: .5rem; margin-bottom: 1rem; }
