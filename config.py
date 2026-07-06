@@ -43,7 +43,9 @@ class Settings(BaseSettings):
     claude_rc_cmd: str = Field(
         default="claude remote-control", validation_alias="CLAUDE_RC_CMD"
     )
-    relay_regex: str = Field(default=r"https?://\S+", validation_alias="RELAY_REGEX")
+    relay_regex: str = Field(
+        default=r"https://claude\.ai/code/session_\S+", validation_alias="RELAY_REGEX"
+    )
 
     # Server
     host: str = Field(default="127.0.0.1", validation_alias="FLEET_HOST")

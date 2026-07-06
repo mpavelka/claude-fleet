@@ -158,24 +158,31 @@ same whether set in the environment or the file:
 | `FLEET_PORT`       | `8700`                           | Bind port                                      |
 | `FLEET_AUTH_TOKEN` | _(unset)_                        | If set, required in `X-Auth-Token` header      |
 | `CLAUDE_RC_CMD`    | `claude remote-control`          | Command launched inside each working tree      |
-| `RELAY_REGEX`      | `https?://\S+`                   | Pattern used to extract the relay URL from logs|
+| `RELAY_REGEX`      | `https://claude\.ai/code/session_\S+` | Pattern used to extract the relay URL from logs |
 
-## Remote-control spawn — known gaps
+## How remote-control spawning works
 
-The relay URL is captured by mirroring the tmux pane to `<workdir>/.relay.log`
-(via `tmux pipe-pane`) and scanning it with `RELAY_REGEX`. Verified against
-`claude` v2.1.92, the current `claude remote-control` behaviour is:
+Verified against `claude` v2.1.92. On spawn, the app handles everything
+`claude remote-control` needs so it doesn't stall on an interactive prompt:
 
-- It shows an interactive **`Enable Remote Control? (y/n)`** prompt on start —
-  the spawn code does **not yet** answer it, so a real remote-control instance
-  will wait at that prompt. Answering needs `tmux send-keys -t <session> y Enter`.
-- After confirming, it prints `https://claude.ai/code/session_<id>` (so a
-  tighter `RELAY_REGEX` is `https://claude\.ai/code/session_\S+`).
-- It requires a signed-in subscription account (see **Claude account** above)
-  and the workspace-trust dialog accepted for the directory — fresh clones
-  aren't trusted yet.
+1. **Workspace trust** — a freshly cloned dir isn't trusted, and remote-control
+   exits with *"Workspace not trusted"*. The app pre-accepts it by setting
+   `hasTrustDialogAccepted` for the clone's **resolved** path in Claude's
+   project config (`~/.claude.json`, or `$CLAUDE_CONFIG_DIR/.claude.json`),
+   preserving the rest of the file and its `0600` perms.
+2. **Spawn mode** — the command is launched as
+   `claude remote-control --name <label> --spawn same-dir`, which labels the
+   session in claude.ai/code and skips the interactive spawn-mode `[1/2]`
+   prompt (each instance is already its own clone).
+3. **Enable prompt** — if the *"Enable Remote Control? (y/n)"* prompt appears, a
+   background watcher answers `y` once (it only fires when it sees that exact
+   prompt, so it's a no-op otherwise).
+4. **Relay URL** — remote-control prints `https://claude.ai/code/session_<id>`
+   inside a terminal hyperlink escape; the scraper reads `<workdir>/.relay.log`,
+   applies `RELAY_REGEX`, and trims trailing control bytes.
 
-Wiring these three up is the next task. To debug a session by hand:
+Requires a signed-in subscription account (see **Claude account** above). To
+debug a session by hand:
 
 ```sh
 tmux attach -t claude-<instance-id>

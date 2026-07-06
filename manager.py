@@ -4,11 +4,14 @@ what's on disk + in tmux against what's tracked in the database.
 No shell=True anywhere; every external command is passed argv-style so repo
 URLs and paths can't inject shell syntax.
 """
+import json
 import os
 import re
 import shlex
 import shutil
 import subprocess
+import threading
+import time
 import uuid
 from datetime import datetime, timezone
 from urllib.parse import quote, urlsplit, urlunsplit
@@ -39,6 +42,13 @@ def _kill_tmux(session: str) -> None:
     subprocess.run(["tmux", "kill-session", "-t", session], capture_output=True)
 
 
+def _clean_url(m: str) -> str:
+    """Trim a scraped URL: cut at the first control/escape byte (Claude prints
+    the URL inside an OSC-8 hyperlink escape) and drop trailing punctuation."""
+    m = re.split(r"[\x00-\x1f\x7f]", m)[0]
+    return m.rstrip(".,)\"'")
+
+
 def _scan_relay(workdir: str) -> str | None:
     """Look for the relay URL in the captured session log. Prefer a Claude
     URL if several links were printed."""
@@ -50,13 +60,14 @@ def _scan_relay(workdir: str) -> str | None:
             text = fh.read()
     except OSError:
         return None
-    matches = re.findall(config.RELAY_REGEX, text)
+    matches = [_clean_url(m) for m in re.findall(config.RELAY_REGEX, text)]
+    matches = [m for m in matches if m]
     if not matches:
         return None
     for m in matches:
         if "claude" in m:
-            return m.rstrip(".,)")
-    return matches[0].rstrip(".,)")
+            return m
+    return matches[0]
 
 
 # --------------------------------------------------------------------------- #
@@ -102,6 +113,83 @@ def _write_credfile(iid: str, host: str, username: str, token: str) -> str:
 
 def _remove_secrets(iid: str) -> None:
     shutil.rmtree(os.path.join(config.SECRETS_ROOT, iid), ignore_errors=True)
+
+
+# --------------------------------------------------------------------------- #
+# Claude workspace trust + remote-control confirmation
+# --------------------------------------------------------------------------- #
+def _claude_json_path() -> str:
+    """Where Claude stores per-project state (incl. trust). CLAUDE_CONFIG_DIR
+    relocates it; otherwise it's ~/.claude.json."""
+    base = os.environ.get("CLAUDE_CONFIG_DIR") or os.path.expanduser("~")
+    return os.path.join(base, ".claude.json")
+
+
+def _trust_workdir(workdir: str) -> None:
+    """Mark a directory as trusted so `claude remote-control` doesn't block on
+    the interactive workspace-trust dialog. Edits Claude's project config in
+    place, preserving everything else and the file's 0600 perms."""
+    path = _claude_json_path()
+    # Claude keys trust by the resolved path (getcwd resolves symlinks, e.g.
+    # /tmp -> /private/tmp on macOS), so realpath must match, not abspath.
+    abspath = os.path.realpath(workdir)
+    try:
+        with open(path, "r") as fh:
+            data = json.load(fh)
+    except FileNotFoundError:
+        data = {}
+    except (OSError, ValueError) as exc:
+        # Never overwrite a config we couldn't parse (could be a transient race).
+        raise SpawnError(f"Could not read Claude config at {path} to grant trust: {exc}")
+
+    projects = data.setdefault("projects", {})
+    entry = projects.get(abspath) or {}
+    entry["hasTrustDialogAccepted"] = True
+    entry.setdefault("hasCompletedProjectOnboarding", True)
+    projects[abspath] = entry
+
+    tmp = f"{path}.fleet-{os.getpid()}.tmp"
+    fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    with os.fdopen(fd, "w") as fh:
+        json.dump(data, fh, indent=2)
+    os.replace(tmp, path)  # atomic
+
+
+_RC_PROMPT = "Enable Remote Control?"
+
+
+def _confirm_remote_control(session: str, logfile: str, timeout: float = 30) -> None:
+    """`claude remote-control` asks 'Enable Remote Control? (y/n)' on start.
+    Wait for that prompt in the captured log and answer 'y' exactly once. Only
+    fires when the prompt is actually seen, so it's a no-op for other commands."""
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        if not _tmux_alive(session):
+            return
+        try:
+            with open(logfile, "r", errors="replace") as fh:
+                if _RC_PROMPT in fh.read():
+                    subprocess.run(
+                        ["tmux", "send-keys", "-t", session, "y", "Enter"],
+                        capture_output=True,
+                    )
+                    return
+        except OSError:
+            pass
+        time.sleep(0.5)
+
+
+def _remote_control_cmd(label: str) -> str:
+    """The shell command tmux runs. For a bare remote-control invocation, add
+    --name (to identify the session in claude.ai/code) and --spawn same-dir (to
+    skip the interactive spawn-mode prompt; each instance is its own clone)."""
+    cmd = config.CLAUDE_RC_CMD
+    if "remote-control" in cmd:
+        if "--name" not in cmd:
+            cmd = f"{cmd} --name {shlex.quote(label)}"
+        if "--spawn" not in cmd:
+            cmd = f"{cmd} --spawn same-dir"
+    return cmd
 
 
 # --------------------------------------------------------------------------- #
@@ -163,9 +251,14 @@ def spawn(repo_url: str, name: str | None, credential_id: str | None = None) -> 
         if cred["git_email"]:
             _git(workdir, "config", "user.email", cred["git_email"])
 
+    # Pre-accept the workspace-trust dialog so remote-control doesn't exit.
+    _trust_workdir(workdir)
+
+    label = (name or "").strip() or _repo_basename(repo_url)
     session = f"claude-{iid}"
     launch = subprocess.run(
-        ["tmux", "new-session", "-d", "-s", session, "-c", workdir, config.CLAUDE_RC_CMD],
+        ["tmux", "new-session", "-d", "-s", session, "-x", "220", "-y", "50",
+         "-c", workdir, _remote_control_cmd(label)],
         capture_output=True,
         text=True,
     )
@@ -181,7 +274,11 @@ def spawn(repo_url: str, name: str | None, credential_id: str | None = None) -> 
         capture_output=True,
     )
 
-    label = (name or "").strip() or _repo_basename(repo_url)
+    # Answer the "Enable Remote Control? (y/n)" prompt in the background.
+    threading.Thread(
+        target=_confirm_remote_control, args=(session, logfile), daemon=True
+    ).start()
+
     db.add_instance(iid, label, repo_url, workdir, session, credential_id=credential_id)
     return iid
 
