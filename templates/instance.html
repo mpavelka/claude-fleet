@@ -31,6 +31,10 @@
       <button class="kill" hx-post="/instances/{{ i.id }}/kill" hx-swap="none"
               hx-on::after-request="if(event.detail.successful) window.location='/'">Kill</button>
       {% elif i.status == "orphan" %}
+      {% if i.tracked %}
+      <button class="rerun" hx-post="/instances/{{ i.id }}/rerun"
+              hx-target="#action-error" hx-swap="innerHTML">Re-run session</button>
+      {% endif %}
       <form hx-post="/cleanup" hx-swap="none"
             hx-on::after-request="if(event.detail.successful) window.location='/'"
             hx-confirm="Delete working tree {{ i.workdir }}? This cannot be undone.">
@@ -39,6 +43,7 @@
       </form>
       {% endif %}
     </div>
+    <div id="action-error"></div>
   </section>
 
   <section class="detail-log">

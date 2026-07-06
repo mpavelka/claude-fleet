@@ -89,6 +89,8 @@ button {
 }
 button.kill { background: var(--red); color: #fff; }
 button.cleanup { background: transparent; color: var(--amber); border: 1px solid var(--amber); }
+button.rerun { background: var(--green); color: #06210c; }
+#action-error { margin-top: .75rem; }
 
 .error {
   background: rgba(248, 81, 73, .12);

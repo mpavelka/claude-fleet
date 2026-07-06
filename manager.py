@@ -293,6 +293,47 @@ def kill(iid: str) -> None:
     db.mark_stopped(iid)
 
 
+def rerun(iid: str) -> None:
+    """Relaunch a dead instance's remote-control session in its existing working
+    tree (no re-clone). Git auth and trust are already in place from the first
+    spawn; only the tmux session is recreated."""
+    row = db.get(iid)
+    if row is None:
+        raise SpawnError("No such instance.")
+    workdir = row["workdir"]
+    if not os.path.isdir(workdir):
+        raise SpawnError("Working tree no longer exists — nothing to re-run.")
+    session = row["tmux_session"]
+    if _tmux_alive(session):
+        return  # already running
+
+    _trust_workdir(workdir)  # idempotent; also covers a trust entry lost since
+
+    launch = subprocess.run(
+        ["tmux", "new-session", "-d", "-s", session, "-x", "220", "-y", "50",
+         "-c", workdir, _remote_control_cmd(row["name"])],
+        capture_output=True,
+        text=True,
+    )
+    if launch.returncode != 0:
+        raise SpawnError(f"tmux launch failed: {launch.stderr.strip()}")
+
+    # Start the log fresh so the detail page shows this attempt, not the old one.
+    logfile = os.path.join(workdir, ".relay.log")
+    try:
+        open(logfile, "w").close()
+    except OSError:
+        pass
+    subprocess.run(
+        ["tmux", "pipe-pane", "-t", session, "-o", f"cat >> {shlex.quote(logfile)}"],
+        capture_output=True,
+    )
+    threading.Thread(
+        target=_confirm_remote_control, args=(session, logfile), daemon=True
+    ).start()
+    db.reactivate(iid)
+
+
 def cleanup(workdir: str) -> None:
     """Delete a working tree on disk. Works for both tracked orphans and
     untracked leftover directories. Refuses paths outside FLEET_ROOT."""

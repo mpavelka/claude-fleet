@@ -105,6 +105,16 @@ def mark_stopped(iid) -> None:
         )
 
 
+def reactivate(iid) -> None:
+    """Clear stopped/relay state so a re-run instance reads as running and its
+    relay URL is re-scraped fresh."""
+    with _connect() as c:
+        c.execute(
+            "UPDATE instances SET stopped_at = NULL, relay_url = NULL WHERE id = ?",
+            (iid,),
+        )
+
+
 def delete(iid) -> None:
     with _connect() as c:
         c.execute("DELETE FROM instances WHERE id = ?", (iid,))

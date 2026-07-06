@@ -120,6 +120,16 @@ def kill_instance(request: Request, iid: str):
     return _render(request, "_cards.html", instances=manager.list_instances())
 
 
+@app.post("/instances/{iid}/rerun", response_class=HTMLResponse)
+def rerun_instance(request: Request, iid: str):
+    try:
+        manager.rerun(iid)
+    except manager.SpawnError as exc:
+        return _render(request, "_error.html", error=str(exc))
+    # Success: reload the detail page so it shows the running session + live log.
+    return Response(status_code=204, headers={"HX-Redirect": f"/instances/{iid}"})
+
+
 @app.post("/cleanup", response_class=HTMLResponse)
 def cleanup_instance(request: Request, workdir: str = Form(...)):
     error = None

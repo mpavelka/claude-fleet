@@ -18,6 +18,10 @@ link and QR code surfaced in the UI.
   metadata and its captured session log (the tmux pane output). This is the
   place to look when an instance dies immediately / shows as `orphan` — the log
   says why (e.g. not signed in, or the workspace-trust dialog wasn't accepted).
+- **Re-run** — the detail page of an orphaned instance has a *Re-run session*
+  button that relaunches remote-control in the existing working tree (no
+  re-clone; git auth and trust are already in place). Handy after fixing
+  whatever made it exit.
 
 ## Prerequisites (host-level)
 
