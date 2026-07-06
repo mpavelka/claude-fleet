@@ -1,38 +1,94 @@
-"""Central configuration, all overridable via environment variables.
+"""Central configuration via pydantic-settings.
 
-Nothing here requires root. Defaults live under the user's home so the app
-runs anywhere `python3`, `git`, `tmux`, and `claude` are available.
+Precedence (highest first): real environment variables > the config file
+(`.env` format) > built-in defaults. The config file path defaults to
+`~/.claude-fleet/.env` and can be overridden with the app's `--config/-c` flag
+(or the `FLEET_CONFIG` environment variable).
+
+For backwards compatibility the rest of the code reads module-level constants
+(`config.FLEET_ROOT`, `config.DB_PATH`, ...). These are (re)assigned from the
+active `Settings` instance by `load()`, so anything that reads them at call time
+picks up the loaded config. Do NOT read them at import time in other modules.
 """
 import os
 
-# Root directory that holds one cloned working tree per instance.
-FLEET_ROOT = os.path.abspath(
-    os.environ.get("FLEET_ROOT", os.path.expanduser("~/.claude-fleet/instances"))
-)
+from pydantic import Field, field_validator
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
-# SQLite state file.
-DB_PATH = os.path.abspath(
-    os.environ.get("FLEET_DB", os.path.expanduser("~/.claude-fleet/fleet.db"))
-)
+DEFAULT_CONFIG_PATH = os.path.expanduser("~/.claude-fleet/.env")
 
-# Per-instance secret material (git credential files) lives here, OUTSIDE any
-# working tree, one subdir per instance. Never committed, never in the pane log.
-SECRETS_ROOT = os.path.abspath(
-    os.environ.get("FLEET_SECRETS", os.path.expanduser("~/.claude-fleet/secrets"))
-)
 
-# The command tmux runs inside each instance's working tree. This is the one
-# thing to verify against your installed `claude` version -- see README.
-CLAUDE_RC_CMD = os.environ.get("CLAUDE_RC_CMD", "claude remote-control")
+class Settings(BaseSettings):
+    model_config = SettingsConfigDict(case_sensitive=False, extra="ignore")
 
-# Regex used to pull the relay URL out of the captured session log.
-RELAY_REGEX = os.environ.get("RELAY_REGEX", r"https?://\S+")
+    # Paths
+    root: str = Field(
+        default=os.path.expanduser("~/.claude-fleet/instances"),
+        validation_alias="FLEET_ROOT",
+    )
+    db_path: str = Field(
+        default=os.path.expanduser("~/.claude-fleet/fleet.db"),
+        validation_alias="FLEET_DB",
+    )
+    secrets_root: str = Field(
+        default=os.path.expanduser("~/.claude-fleet/secrets"),
+        validation_alias="FLEET_SECRETS",
+    )
 
-# Defense-in-depth: if set, every request must carry this value in the
-# X-Auth-Token header. The reverse proxy is expected to inject it. Leave unset
-# when you trust the proxy alone.
-AUTH_TOKEN = os.environ.get("FLEET_AUTH_TOKEN")
+    # Secrets / auth
+    secret_key: str | None = Field(default=None, validation_alias="FLEET_SECRET_KEY")
+    auth_token: str | None = Field(default=None, validation_alias="FLEET_AUTH_TOKEN")
 
-# Bind address. Default to loopback so the app is only reachable via the proxy.
-HOST = os.environ.get("FLEET_HOST", "127.0.0.1")
-PORT = int(os.environ.get("FLEET_PORT", "8700"))
+    # Claude / remote-control
+    claude_rc_cmd: str = Field(
+        default="claude remote-control", validation_alias="CLAUDE_RC_CMD"
+    )
+    relay_regex: str = Field(default=r"https?://\S+", validation_alias="RELAY_REGEX")
+
+    # Server
+    host: str = Field(default="127.0.0.1", validation_alias="FLEET_HOST")
+    port: int = Field(default=8700, validation_alias="FLEET_PORT")
+
+    @field_validator("root", "db_path", "secrets_root")
+    @classmethod
+    def _absolute(cls, v: str) -> str:
+        return os.path.abspath(os.path.expanduser(v))
+
+
+# Active settings + backwards-compatible module constants (populated by load()).
+settings: Settings
+FLEET_ROOT: str
+DB_PATH: str
+SECRETS_ROOT: str
+SECRET_KEY: str | None
+AUTH_TOKEN: str | None
+CLAUDE_RC_CMD: str
+RELAY_REGEX: str
+HOST: str
+PORT: int
+
+
+def load(config_path: str | None = None) -> Settings:
+    """(Re)load configuration from `config_path` (or FLEET_CONFIG, or the
+    default), refresh the module constants, and return the Settings."""
+    global settings
+    path = config_path or os.environ.get("FLEET_CONFIG") or DEFAULT_CONFIG_PATH
+    env_file = path if os.path.isfile(path) else None
+    settings = Settings(_env_file=env_file)
+
+    globals().update(
+        FLEET_ROOT=settings.root,
+        DB_PATH=settings.db_path,
+        SECRETS_ROOT=settings.secrets_root,
+        SECRET_KEY=settings.secret_key,
+        AUTH_TOKEN=settings.auth_token,
+        CLAUDE_RC_CMD=settings.claude_rc_cmd,
+        RELAY_REGEX=settings.relay_regex,
+        HOST=settings.host,
+        PORT=settings.port,
+    )
+    return settings
+
+
+# Eager default load so `import config` works without an explicit load() call.
+load()

@@ -201,6 +201,17 @@ def claude_login_qr():
 
 
 if __name__ == "__main__":
+    import argparse
+
     import uvicorn
+
+    parser = argparse.ArgumentParser(prog="claude-fleet", description="Claude Fleet dashboard")
+    parser.add_argument(
+        "-c", "--config", default=None,
+        help="Path to a .env config file (default: ~/.claude-fleet/.env, "
+             "or the FLEET_CONFIG env var). Real environment variables still win.",
+    )
+    args = parser.parse_args()
+    config.load(args.config)
 
     uvicorn.run(app, host=config.HOST, port=config.PORT)

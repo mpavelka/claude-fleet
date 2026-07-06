@@ -7,28 +7,26 @@ still runs.
 
 Generate a key with:  python crypto.py
 """
-import os
-
 try:
     from cryptography.fernet import Fernet
 except ImportError:  # pragma: no cover - dependency missing
     Fernet = None
 
-_ENV = "FLEET_SECRET_KEY"
+import config
 
 
 def available() -> bool:
     """True when we can actually encrypt/decrypt (library present + key set)."""
-    return Fernet is not None and bool(os.environ.get(_ENV))
+    return Fernet is not None and bool(config.SECRET_KEY)
 
 
 def _cipher() -> "Fernet":
     if Fernet is None:
         raise RuntimeError("The 'cryptography' package is not installed.")
-    key = os.environ.get(_ENV)
+    key = config.SECRET_KEY
     if not key:
         raise RuntimeError(
-            f"{_ENV} is not set; credential storage is disabled. "
+            "FLEET_SECRET_KEY is not set; credential storage is disabled. "
             "Generate one with `python crypto.py`."
         )
     return Fernet(key.encode())

@@ -20,7 +20,12 @@ import time
 import config
 
 LOGIN_SESSION = "claude-fleet-login"
-LOGIN_LOG = os.path.join(os.path.dirname(config.DB_PATH), "claude-login.log")
+
+
+def _login_log() -> str:
+    """Path of the login session's piped log. Computed lazily so it reflects the
+    config loaded at startup (see config.load), not import-time defaults."""
+    return os.path.join(os.path.dirname(config.DB_PATH), "claude-login.log")
 
 # The authorize URL claude prints (and any hosted-callback variant).
 _AUTHORIZE_RE = re.compile(r"https://\S*oauth/authorize\S*")
@@ -53,10 +58,11 @@ def _login_active() -> bool:
 
 def login_url() -> str | None:
     """Scrape the authorize URL from the login session's piped log."""
-    if not os.path.isfile(LOGIN_LOG):
+    log = _login_log()
+    if not os.path.isfile(log):
         return None
     try:
-        text = open(LOGIN_LOG, "r", errors="replace").read()
+        text = open(log, "r", errors="replace").read()
     except OSError:
         return None
     m = _AUTHORIZE_RE.search(text)
@@ -79,12 +85,13 @@ def login_state(error: str | None = None) -> dict:
 def start_login() -> str | None:
     """Launch `claude auth login` in a detached session and wait briefly for the
     authorize URL to appear. Returns the URL (or None if it didn't show yet)."""
+    log = _login_log()
     subprocess.run(["tmux", "kill-session", "-t", LOGIN_SESSION], capture_output=True)
     try:
-        os.remove(LOGIN_LOG)
+        os.remove(log)
     except OSError:
         pass
-    os.makedirs(os.path.dirname(LOGIN_LOG), exist_ok=True)
+    os.makedirs(os.path.dirname(log), exist_ok=True)
 
     # Wide window so the long URL isn't display-wrapped; BROWSER=true prevents
     # any attempt to open a browser on the server itself.
@@ -94,7 +101,7 @@ def start_login() -> str | None:
         capture_output=True,
     )
     subprocess.run(
-        ["tmux", "pipe-pane", "-t", LOGIN_SESSION, "-o", f"cat >> {shlex.quote(LOGIN_LOG)}"],
+        ["tmux", "pipe-pane", "-t", LOGIN_SESSION, "-o", f"cat >> {shlex.quote(log)}"],
         capture_output=True,
     )
     return _wait(login_url, timeout=8)

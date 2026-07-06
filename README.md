@@ -30,13 +30,23 @@ cd claude-fleet
 python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 
-# Needed only if you want to store GitLab credentials (see below):
-export FLEET_SECRET_KEY="$(python crypto.py)"   # persist this somewhere safe
-
-python app.py            # serves on 127.0.0.1:8700 by default
+python app.py                      # reads ~/.claude-fleet/.env if present
+python app.py -c /etc/claude-fleet.env   # or point at a specific config file
 ```
 
-Open http://127.0.0.1:8700 (locally) or put it behind the reverse proxy below.
+By default the server listens on `127.0.0.1:8700`. Open http://127.0.0.1:8700
+locally, or put it behind the reverse proxy below.
+
+All settings can come from a **config file**, real **environment variables**, or
+built-in defaults — see [Configuration](#configuration). The quickest start is
+to copy the sample and edit it:
+
+```sh
+mkdir -p ~/.claude-fleet
+cp .env.example ~/.claude-fleet/.env
+# generate the credential-encryption key and add it to the file:
+echo "FLEET_SECRET_KEY=$(python crypto.py)" >> ~/.claude-fleet/.env
+```
 
 ## Exposing it safely
 
@@ -102,7 +112,23 @@ The token username depends on the token type (your username for a PAT, the token
 name for Project/Group tokens). Give the repo URL over HTTPS (SSH URLs are
 auto-converted to HTTPS when a credential is attached).
 
-## Configuration (environment variables)
+## Configuration
+
+Configuration is handled by [pydantic-settings](https://docs.pydantic.dev/latest/concepts/pydantic_settings/).
+Every value can come from three places, in **descending precedence**:
+
+1. **Real environment variables** — always win.
+2. **A config file** in `.env` format (`KEY=value` lines). Path resolution:
+   the `--config`/`-c` flag → the `FLEET_CONFIG` env var → the default
+   `~/.claude-fleet/.env`. A missing file is fine (defaults are used).
+3. **Built-in defaults** (the table below).
+
+```sh
+python app.py -c /etc/claude-fleet.env
+```
+
+See [`.env.example`](.env.example) for a template. The variable names are the
+same whether set in the environment or the file:
 
 | Variable           | Default                          | Purpose                                        |
 |--------------------|----------------------------------|------------------------------------------------|

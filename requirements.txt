@@ -4,3 +4,4 @@ jinja2
 qrcode
 python-multipart
 cryptography
+pydantic-settings
