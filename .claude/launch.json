@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "claude-fleet",
+      "runtimeExecutable": "sh",
+      "runtimeArgs": ["-c", "FLEET_SECRET_KEY=\"$(./.venv/bin/python crypto.py)\" ./.venv/bin/python app.py"],
+      "port": 8700
+    }
+  ]
+}

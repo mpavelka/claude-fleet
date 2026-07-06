@@ -54,6 +54,14 @@ As defense-in-depth, set `FLEET_AUTH_TOKEN` and have the proxy inject the same
 value in the `X-Auth-Token` header (the Caddyfile shows this). Then even a
 misconfigured firewall exposing port 8700 won't hand out shells.
 
+## Environment status
+
+The header has an **Environment** indicator (a colored dot you can expand) that
+probes the tools and services the app depends on: `tmux`, `git`, `claude`
+(required), and `docker` plus credential encryption (optional). It shows each
+one's version and flags anything missing or degraded (e.g. docker installed but
+the daemon isn't running). It refreshes every 15s while expanded.
+
 ## Per-instance GitLab credentials
 
 Each instance can authenticate to GitLab as its own identity. You curate a pool

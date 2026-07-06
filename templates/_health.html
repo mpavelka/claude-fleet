@@ -1,0 +1,20 @@
+{# Keeps the collapsed summary dot in sync without disturbing the <details> open state. #}
+<span id="env-dot" class="dot state-{{ health.overall }}" hx-swap-oob="true"></span>
+
+<div class="env-overall state-{{ health.overall }}">
+  {% if health.overall == "ok" %}All dependencies available
+  {% elif health.overall == "warn" %}Running, with optional services degraded
+  {% else %}A required dependency is missing{% endif %}
+</div>
+
+<ul class="env-list">
+  {% for it in health.checks %}
+  <li class="env-item state-{{ it.state }}">
+    <span class="dot"></span>
+    <span class="env-name">{{ it.name }}</span>
+    <span class="env-tag">{{ "required" if it.required else "optional" }}</span>
+    <span class="env-ver">{{ it.version or "missing" }}</span>
+    {% if it.detail %}<span class="env-detail">{{ it.detail }}</span>{% endif %}
+  </li>
+  {% endfor %}
+</ul>

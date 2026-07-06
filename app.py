@@ -17,6 +17,7 @@ from fastapi.templating import Jinja2Templates
 import config
 import crypto
 import db
+import health
 import manager
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -55,12 +56,18 @@ def index(request: Request):
         instances=manager.list_instances(),
         credentials=db.all_credentials(),
         secret_ready=crypto.available(),
+        health=health.check(),
     )
 
 
 @app.get("/partials/instances", response_class=HTMLResponse)
 def instances_partial(request: Request):
     return _render(request, "_cards.html", instances=manager.list_instances())
+
+
+@app.get("/partials/health", response_class=HTMLResponse)
+def health_partial(request: Request):
+    return _render(request, "_health.html", health=health.check())
 
 
 # --------------------------------------------------------------------------- #
