@@ -15,21 +15,48 @@ except ImportError:  # pragma: no cover - dependency missing
 import config
 
 
+def _key() -> str | None:
+    """The configured key, trimmed of stray whitespace/newlines from pasting."""
+    key = config.SECRET_KEY
+    return key.strip() if key else None
+
+
+def key_status() -> str:
+    """One of 'ok' | 'missing' | 'invalid' | 'no-lib'. Anything other than 'ok'
+    means credential storage is disabled."""
+    if Fernet is None:
+        return "no-lib"
+    key = _key()
+    if not key:
+        return "missing"
+    try:
+        Fernet(key.encode())
+    except Exception:
+        return "invalid"
+    return "ok"
+
+
+def key_message() -> str | None:
+    """Human-readable reason credentials are disabled, or None when all good."""
+    return {
+        "ok": None,
+        "missing": "FLEET_SECRET_KEY is not set.",
+        "invalid": "FLEET_SECRET_KEY is not a valid key (must be a value from "
+                   "`python crypto.py`).",
+        "no-lib": "The 'cryptography' package is not installed.",
+    }[key_status()]
+
+
 def available() -> bool:
-    """True when we can actually encrypt/decrypt (library present + key set)."""
-    return Fernet is not None and bool(config.SECRET_KEY)
+    """True only when we can actually encrypt/decrypt with the current key."""
+    return key_status() == "ok"
 
 
 def _cipher() -> "Fernet":
-    if Fernet is None:
-        raise RuntimeError("The 'cryptography' package is not installed.")
-    key = config.SECRET_KEY
-    if not key:
-        raise RuntimeError(
-            "FLEET_SECRET_KEY is not set; credential storage is disabled. "
-            "Generate one with `python crypto.py`."
-        )
-    return Fernet(key.encode())
+    msg = key_message()
+    if msg is not None:
+        raise RuntimeError(f"{msg} Credential storage is disabled.")
+    return Fernet(_key().encode())
 
 
 def encrypt(plaintext: str) -> str:

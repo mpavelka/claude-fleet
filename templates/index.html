@@ -47,8 +47,9 @@
     <h2>Git credentials</h2>
     {% if not secret_ready %}
     <div class="error">
-      <code>FLEET_SECRET_KEY</code> is not set, so credentials can't be stored.
-      Generate one with <code>python crypto.py</code> and set it in the environment.
+      {{ secret_message }} Credentials can't be stored until this is fixed —
+      generate a key with <code>python crypto.py</code> and set
+      <code>FLEET_SECRET_KEY</code> (in the environment or your config file).
     </div>
     {% endif %}
 

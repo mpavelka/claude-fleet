@@ -93,7 +93,7 @@ def _probe_secret_key() -> dict:
         "required": False,
         "path": None,
         "version": "FLEET_SECRET_KEY set" if ok else None,
-        "detail": None if ok else "FLEET_SECRET_KEY not set — credentials disabled",
+        "detail": None if ok else f"{crypto.key_message()} credentials disabled",
         "state": "ok" if ok else "warn",
     }
 

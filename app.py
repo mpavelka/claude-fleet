@@ -64,6 +64,7 @@ def index(request: Request):
         instances=manager.list_instances(),
         credentials=db.all_credentials(),
         secret_ready=crypto.available(),
+        secret_message=crypto.key_message(),
         health=health.check(),
         claude=auth_claude.login_state(),
     )
@@ -138,18 +139,22 @@ def create_credential(
     if not crypto.available():
         raise HTTPException(
             status_code=400,
-            detail="FLEET_SECRET_KEY is not set; cannot store credentials.",
+            detail=f"Cannot store credentials: {crypto.key_message()}",
         )
     provider = provider.strip().lower()
     if provider not in ("github", "gitlab"):
         provider = "github"
+    try:
+        secret_enc = crypto.encrypt(token)
+    except Exception as exc:  # never surface a raw 500 for a config problem
+        raise HTTPException(status_code=400, detail=f"Cannot encrypt token: {exc}")
     db.add_credential(
         uuid.uuid4().hex[:12],
         name.strip(),
         provider,
         host.strip(),
         username.strip() or "oauth2",
-        crypto.encrypt(token),
+        secret_enc,
         git_name.strip() or None,
         git_email.strip() or None,
     )
