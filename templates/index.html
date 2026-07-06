@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Claude Fleet</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <script src="https://unpkg.com/htmx.org@1.9.12"></script>
+</head>
+<body>
+  <header>
+    <h1>Claude Fleet</h1>
+    <p class="sub">Clone a repo &middot; spawn Claude instances &middot; grab a remote-control link</p>
+  </header>
+
+  <section class="new">
+    <form hx-post="/instances" hx-target="#instances" hx-swap="innerHTML"
+          hx-on::after-request="if(event.detail.successful) this.reset()">
+      <input type="text" name="repo_url" placeholder="https://github.com/you/repo.git" required>
+      <input type="text" name="name" placeholder="label (optional)">
+      <button type="submit">Clone &amp; spawn</button>
+    </form>
+  </section>
+
+  <main id="instances" hx-get="/partials/instances" hx-trigger="every 3s" hx-swap="innerHTML">
+    {% include "_cards.html" %}
+  </main>
+</body>
+</html>

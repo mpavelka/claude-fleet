@@ -1,0 +1,21 @@
+# Reference reverse proxy: TLS + basic-auth in front of the loopback-only app.
+#
+# 1. Generate a password hash:   caddy hash-password --plaintext 'yourpass'
+# 2. Paste the hash below and set your domain.
+# 3. Run:   caddy run --config Caddyfile
+#
+# Caddy fetches a real certificate automatically for a public domain.
+
+fleet.example.com {
+    # Gate every request behind HTTP basic auth.
+    basic_auth {
+        # username  <bcrypt-hash-from-caddy-hash-password>
+        admin $2a$14$REPLACE_WITH_YOUR_HASH
+    }
+
+    # Defense-in-depth: inject the shared token the app checks (set the same
+    # value in FLEET_AUTH_TOKEN when launching the app). Optional but cheap.
+    request_header X-Auth-Token "REPLACE_WITH_SHARED_TOKEN"
+
+    reverse_proxy 127.0.0.1:8700
+}

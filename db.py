@@ -1,0 +1,87 @@
+"""Thin SQLite layer. State that isn't derivable from tmux/filesystem lives here:
+the mapping of instance id -> repo, working tree, tmux session, relay URL.
+"""
+import os
+import sqlite3
+from contextlib import contextmanager
+from datetime import datetime, timezone
+
+import config
+
+
+def _now() -> str:
+    return datetime.now(timezone.utc).isoformat(timespec="seconds")
+
+
+@contextmanager
+def _connect():
+    conn = sqlite3.connect(config.DB_PATH)
+    conn.row_factory = sqlite3.Row
+    try:
+        yield conn
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def init() -> None:
+    os.makedirs(os.path.dirname(config.DB_PATH), exist_ok=True)
+    with _connect() as c:
+        c.execute(
+            """
+            CREATE TABLE IF NOT EXISTS instances (
+                id            TEXT PRIMARY KEY,
+                name          TEXT NOT NULL,
+                repo_url      TEXT NOT NULL,
+                workdir       TEXT NOT NULL,
+                tmux_session  TEXT NOT NULL,
+                relay_url     TEXT,
+                created_at    TEXT NOT NULL,
+                stopped_at    TEXT
+            )
+            """
+        )
+
+
+def add_instance(iid, name, repo_url, workdir, tmux_session) -> None:
+    with _connect() as c:
+        c.execute(
+            "INSERT INTO instances (id, name, repo_url, workdir, tmux_session, created_at) "
+            "VALUES (?, ?, ?, ?, ?, ?)",
+            (iid, name, repo_url, workdir, tmux_session, _now()),
+        )
+
+
+def all_instances() -> list[sqlite3.Row]:
+    with _connect() as c:
+        return c.execute("SELECT * FROM instances ORDER BY created_at DESC").fetchall()
+
+
+def get(iid) -> sqlite3.Row | None:
+    with _connect() as c:
+        return c.execute("SELECT * FROM instances WHERE id = ?", (iid,)).fetchone()
+
+
+def get_by_workdir(workdir) -> sqlite3.Row | None:
+    with _connect() as c:
+        return c.execute(
+            "SELECT * FROM instances WHERE workdir = ?", (workdir,)
+        ).fetchone()
+
+
+def set_relay(iid, url) -> None:
+    with _connect() as c:
+        c.execute("UPDATE instances SET relay_url = ? WHERE id = ?", (url, iid))
+
+
+def mark_stopped(iid) -> None:
+    with _connect() as c:
+        c.execute(
+            "UPDATE instances SET stopped_at = ? WHERE id = ? AND stopped_at IS NULL",
+            (_now(), iid),
+        )
+
+
+def delete(iid) -> None:
+    with _connect() as c:
+        c.execute("DELETE FROM instances WHERE id = ?", (iid,))
