@@ -33,6 +33,7 @@
     {% endif %}
 
     <div class="actions">
+      <a class="details-link" href="/instances/{{ i.id }}">Details &amp; logs</a>
       {% if i.running %}
       <button class="kill" hx-post="/instances/{{ i.id }}/kill" hx-target="#instances" hx-swap="innerHTML">Kill</button>
       {% elif i.status == "orphan" %}

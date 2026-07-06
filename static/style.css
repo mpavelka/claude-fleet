@@ -146,8 +146,35 @@ button.cleanup { background: transparent; color: var(--amber); border: 1px solid
 .relay.pending { color: var(--muted); font-size: .85rem; }
 .qr { background: #fff; padding: 6px; border-radius: 8px; align-self: flex-start; }
 
-.actions { margin-top: auto; padding-top: .5rem; }
+.actions { margin-top: auto; padding-top: .5rem; display: flex; align-items: center; gap: .75rem; flex-wrap: wrap; }
 .actions form { margin: 0; }
+.details-link { color: var(--accent); font-size: .82rem; text-decoration: none; }
+.details-link:hover { text-decoration: underline; }
+
+/* Instance detail page */
+header .back { color: var(--muted); text-decoration: none; font-size: .85rem; display: inline-block; margin-bottom: .25rem; }
+header .back:hover { color: var(--text); }
+.detail-meta { display: flex; justify-content: space-between; gap: 1.5rem; flex-wrap: wrap; margin-bottom: 1.5rem; }
+.detail-meta dl { display: grid; grid-template-columns: auto 1fr; gap: .3rem 1rem; margin: 0; font-size: .88rem; }
+.detail-meta dt { color: var(--muted); }
+.detail-meta dd { margin: 0; word-break: break-all; }
+.detail-meta dd.mono, .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .82rem; }
+.detail-log h2 { font-size: 1.05rem; margin: 0 0 .5rem; }
+pre.log {
+  background: #0b0d12;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 1rem;
+  overflow-x: auto;
+  max-height: 60vh;
+  overflow-y: auto;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: .8rem;
+  line-height: 1.45;
+  color: #d6dae2;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
 
 .cred-tag { font-size: .78rem; color: var(--muted); }
 

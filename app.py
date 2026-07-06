@@ -98,6 +98,22 @@ def create_instance(
     return _render(request, "_cards.html", instances=manager.list_instances(), error=error)
 
 
+@app.get("/instances/{iid}", response_class=HTMLResponse)
+def instance_detail(request: Request, iid: str):
+    item = manager.get_instance(iid)
+    if item is None:
+        raise HTTPException(status_code=404, detail="No such instance.")
+    return _render(request, "instance.html", i=item, log=manager.instance_log(item["workdir"]))
+
+
+@app.get("/instances/{iid}/log", response_class=HTMLResponse)
+def instance_log(request: Request, iid: str):
+    item = manager.get_instance(iid)
+    if item is None:
+        raise HTTPException(status_code=404, detail="No such instance.")
+    return _render(request, "_log.html", i=item, log=manager.instance_log(item["workdir"]))
+
+
 @app.post("/instances/{iid}/kill", response_class=HTMLResponse)
 def kill_instance(request: Request, iid: str):
     manager.kill(iid)

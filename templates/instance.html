@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ i.name }} — Claude Fleet</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <script src="https://unpkg.com/htmx.org@1.9.12"></script>
+</head>
+<body>
+  <header>
+    <div class="title">
+      <a class="back" href="/">&larr; Fleet</a>
+      <h1>{{ i.name }}</h1>
+    </div>
+    <span class="badge status-{{ i.status }}"><span class="dot"></span> {{ i.status }}</span>
+  </header>
+
+  <section class="detail-meta">
+    <dl>
+      {% if i.repo_url %}<dt>Repo</dt><dd>{{ i.repo_url }}</dd>{% endif %}
+      <dt>Working tree</dt><dd class="mono">{{ i.workdir }}</dd>
+      {% if i.tmux_session %}<dt>tmux session</dt><dd class="mono">{{ i.tmux_session }}</dd>{% endif %}
+      {% if i.credential_name %}<dt>Credential</dt><dd>🔑 {{ i.credential_name }}</dd>{% endif %}
+      {% if i.created_at %}<dt>Created</dt><dd>{{ i.created_at }}</dd>{% endif %}
+      {% if i.relay_url %}<dt>Relay</dt><dd><a href="{{ i.relay_url }}" target="_blank" rel="noopener">{{ i.relay_url }}</a></dd>{% endif %}
+    </dl>
+
+    <div class="actions">
+      {% if i.running %}
+      <button class="kill" hx-post="/instances/{{ i.id }}/kill" hx-swap="none"
+              hx-on::after-request="if(event.detail.successful) window.location='/'">Kill</button>
+      {% elif i.status == "orphan" %}
+      <form hx-post="/cleanup" hx-swap="none"
+            hx-on::after-request="if(event.detail.successful) window.location='/'"
+            hx-confirm="Delete working tree {{ i.workdir }}? This cannot be undone.">
+        <input type="hidden" name="workdir" value="{{ i.workdir }}">
+        <button class="cleanup" type="submit">Clean up workdir</button>
+      </form>
+      {% endif %}
+    </div>
+  </section>
+
+  <section class="detail-log">
+    <h2>Session log</h2>
+    {% if i.status == "orphan" %}
+    <p class="muted">This instance's tmux session exited. The log below shows why.</p>
+    {% endif %}
+    <div id="log"
+         hx-get="/instances/{{ i.id }}/log"
+         hx-trigger="{% if i.running %}load, every 2s{% else %}load{% endif %}"
+         hx-swap="innerHTML">
+      {% include "_log.html" %}
+    </div>
+  </section>
+</body>
+</html>

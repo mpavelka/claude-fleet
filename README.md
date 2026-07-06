@@ -14,6 +14,10 @@ link and QR code surfaced in the UI.
 - **Orphans** — killing an instance keeps its working tree so you can inspect
   Claude's changes. The dashboard lists these orphans (including untracked
   directories left over from crashes) and offers a one-click cleanup.
+- **Details & logs** — every card links to a detail page showing the instance's
+  metadata and its captured session log (the tmux pane output). This is the
+  place to look when an instance dies immediately / shows as `orphan` — the log
+  says why (e.g. not signed in, or the workspace-trust dialog wasn't accepted).
 
 ## Prerequisites (host-level)
 
@@ -26,7 +30,6 @@ link and QR code surfaced in the UI.
 ## Install & run
 
 ```sh
-cd claude-fleet
 python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 

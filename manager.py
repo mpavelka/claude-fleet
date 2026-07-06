@@ -272,6 +272,34 @@ def list_instances() -> list[dict]:
     return result
 
 
+def get_instance(iid: str) -> dict | None:
+    """The unified view for a single instance (tracked or untracked)."""
+    return next((i for i in list_instances() if i["id"] == iid), None)
+
+
+_ANSI_RE = re.compile(r"\x1b\[[0-9;?]*[ -/]*[@-~]|\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)")
+
+
+def instance_log(workdir: str, max_bytes: int = 200_000) -> str:
+    """Return the captured tmux pane output for an instance, cleaned of ANSI
+    escapes. Reads the tail so a long-running session's log stays bounded."""
+    if not workdir:
+        return ""
+    path = os.path.join(workdir, ".relay.log")
+    if not os.path.isfile(path):
+        return ""
+    try:
+        size = os.path.getsize(path)
+        with open(path, "rb") as fh:
+            if size > max_bytes:
+                fh.seek(size - max_bytes)
+            data = fh.read()
+    except OSError:
+        return ""
+    text = data.decode("utf-8", errors="replace").replace("\r\n", "\n").replace("\r", "\n")
+    return _ANSI_RE.sub("", text)
+
+
 def _repo_basename(repo_url: str) -> str:
     tail = repo_url.rstrip("/").rsplit("/", 1)[-1]
     return tail[:-4] if tail.endswith(".git") else tail
