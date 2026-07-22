@@ -224,6 +224,30 @@ def _confirm_remote_control(session: str, logfile: str, timeout: float = 30) -> 
         time.sleep(0.5)
 
 
+def _docker_env_flags() -> list[str]:
+    """`tmux new-session -e` flags pointing a spawned session's `docker` CLI at
+    the sandboxed daemon (config.DOCKER_HOST etc -- see docs/deployment-k3s.md),
+    or clearing Docker access when not configured.
+
+    All three vars are ALWAYS passed explicitly, set to the configured value
+    or "" when unset. This matters: tmux sessions share one server process
+    (started implicitly by the first `new-session` call), and that server
+    caches a *global* environment from whichever process started it. A later
+    session does NOT simply inherit the environment of the process that
+    spawns it -- `-e` is the only way to override per-session, so omitting it
+    when DOCKER_HOST isn't configured would leave a stale value from the
+    server's global environment in place (confirmed empirically: a session
+    created after unsetting DOCKER_HOST in the calling shell still saw an
+    ambient value set before the tmux server first started). An empty
+    DOCKER_HOST is equivalent to unset for the docker CLI itself.
+    """
+    return [
+        "-e", f"DOCKER_HOST={config.DOCKER_HOST or ''}",
+        "-e", f"DOCKER_TLS_VERIFY={config.DOCKER_TLS_VERIFY or ''}",
+        "-e", f"DOCKER_CERT_PATH={config.DOCKER_CERT_PATH or ''}",
+    ]
+
+
 def _remote_control_cmd(label: str) -> str:
     """The shell command tmux runs. For a bare remote-control invocation, add
     --name (to identify the session in claude.ai/code) and --spawn same-dir (to
@@ -303,7 +327,7 @@ def spawn(repo_url: str, name: str | None, credential_id: str | None = None) -> 
     session = f"claude-{iid}"
     launch = subprocess.run(
         ["tmux", "new-session", "-d", "-s", session, "-x", "220", "-y", "50",
-         "-c", workdir, _remote_control_cmd(label)],
+         *_docker_env_flags(), "-c", workdir, _remote_control_cmd(label)],
         capture_output=True,
         text=True,
     )
@@ -356,7 +380,7 @@ def rerun(iid: str) -> None:
 
     launch = subprocess.run(
         ["tmux", "new-session", "-d", "-s", session, "-x", "220", "-y", "50",
-         "-c", workdir, _remote_control_cmd(row["name"])],
+         *_docker_env_flags(), "-c", workdir, _remote_control_cmd(row["name"])],
         capture_output=True,
         text=True,
     )

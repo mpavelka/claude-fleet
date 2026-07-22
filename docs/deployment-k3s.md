@@ -5,13 +5,12 @@ cluster (target: Oracle Cloud Ampere A1 Flex / ARM64 VM shapes), including how
 to safely give spawned agent sessions the ability to run Docker commands of
 their own — without giving them a path to root on the host.
 
-**Status:** the Dockerfile and CI in this repo containerize the app as it
-exists today (git clone + tmux + `claude` on the host, no Docker access for
-spawned sessions). The sandboxed Docker daemon described below is the
-*target* architecture for adding that capability safely; wiring `manager.py`
-to actually point spawned sessions at it is a follow-up implementation task,
-not done yet. This doc is written so that follow-up has a design to build
-against.
+**Status:** fully wired. The app reads `DOCKER_HOST` / `DOCKER_TLS_VERIFY` /
+`DOCKER_CERT_PATH` (config.py, same names as Docker's own client env vars —
+exactly what the app Pod manifest in step 6 already sets) and injects them
+into every spawned session via `tmux new-session -e`. Setting those three
+values (or leaving them unset, the default) is the only step needed to turn
+this on or off — no other code changes required.
 
 ## Why this isn't "just add `--privileged: true`"
 
@@ -364,12 +363,32 @@ starve the node — already reflected in the manifests above
 (`resources.limits`/`requests`), following the same reasoning as the original
 PDF's advice, which was correct on this point.
 
-## Open follow-up
+## How spawned sessions actually get wired to the sandbox
 
-`manager.py`'s `spawn()` still launches sessions as host `tmux` processes with
-direct `git`/`claude` access and no Docker at all. To actually give a spawned
-session safe Docker access, `spawn()` needs to set `DOCKER_HOST` /
-`DOCKER_TLS_VERIFY` / `DOCKER_CERT_PATH` in the tmux session's environment,
-pointing at the `docker-sandbox` Service above. That's a small, contained
-change once this infrastructure exists — happy to build it when you're ready
-to wire it up.
+`manager.py` reads `config.DOCKER_HOST` / `config.DOCKER_TLS_VERIFY` /
+`config.DOCKER_CERT_PATH` (populated from the identically-named env vars —
+see step 6's app Pod manifest, which already sets exactly these three) and
+passes them to every `tmux new-session` call via `-e KEY=VALUE`, for both a
+fresh `spawn()` and a `rerun()` of an orphaned instance. Any `docker` command
+a spawned session runs then transparently talks to the sandboxed daemon.
+
+This needed to be more deliberate than "the container's env vars are already
+there, so tmux sessions must inherit them": tmux sessions share **one**
+server process, started implicitly by whichever `new-session` call happens
+to run first, and that server caches a *global* environment from the process
+that started it — a later session does **not** simply inherit the environment
+of whatever process spawns it. Confirmed empirically: a session created after
+explicitly unsetting `DOCKER_HOST` in the calling shell still saw a value set
+before the tmux server first started. `-e` is the only reliable per-session
+override, so all three vars are passed on **every** `new-session` call
+regardless of configuration — set to their real values when configured, or to
+`""` (equivalent to unset for the `docker` CLI) when not. Leaving any of them
+out when unconfigured would risk a stale value leaking in from whatever the
+tmux server's environment happened to be when it first started, silently
+undermining "Docker access is disabled" as a security boundary.
+
+The **Environment** status widget also gained a **sandboxed docker** check
+(`health.py`), distinct from the existing local-`docker`-CLI check: `absent`
+when `DOCKER_HOST` isn't configured (the normal, unremarkable default),
+`ok`/`warn` based on whether the configured target actually responds when it
+is.

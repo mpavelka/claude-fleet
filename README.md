@@ -26,6 +26,12 @@ link and QR code surfaced in the UI.
   button that relaunches remote-control in the existing working tree (no
   re-clone; git auth and trust are already in place). Handy after fixing
   whatever made it exit.
+- **Sandboxed Docker access (optional)** — set `DOCKER_HOST` (see
+  [Configuration](#configuration)) and every spawned session's `docker` CLI is
+  transparently pointed at it; unset (the default), spawned sessions have no
+  Docker access at all. See [docs/deployment-k3s.md](docs/deployment-k3s.md)
+  for the recommended way to back this with an isolated, gVisor-sandboxed
+  daemon rather than a host/cluster Docker socket.
 
 ## Prerequisites (host-level)
 
@@ -194,6 +200,9 @@ same whether set in the environment or the file:
 | `FLEET_AUTH_TOKEN` | _(unset)_                        | If set, required in `X-Auth-Token` header      |
 | `CLAUDE_RC_CMD`    | `claude remote-control`          | Command launched inside each working tree      |
 | `RELAY_REGEX`      | `https://claude\.ai/code/session_\S+` | Pattern used to extract the relay URL from logs |
+| `DOCKER_HOST`      | _(unset)_                        | If set, spawned sessions' `docker` CLI points here instead of having no Docker access — see [docs/deployment-k3s.md](docs/deployment-k3s.md) |
+| `DOCKER_TLS_VERIFY`| _(unset)_                        | Passed through to spawned sessions alongside `DOCKER_HOST`     |
+| `DOCKER_CERT_PATH` | _(unset)_                        | Passed through to spawned sessions alongside `DOCKER_HOST`     |
 
 ## How remote-control spawning works
 

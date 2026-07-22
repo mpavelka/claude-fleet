@@ -51,6 +51,14 @@ class Settings(BaseSettings):
     host: str = Field(default="127.0.0.1", validation_alias="FLEET_HOST")
     port: int = Field(default=8700, validation_alias="FLEET_PORT")
 
+    # Sandboxed Docker access for spawned sessions (optional; see
+    # docs/deployment-k3s.md). Field names deliberately match Docker's own
+    # client env vars -- these are exactly what a deployment's Pod manifest
+    # would already set on the app container.
+    docker_host: str | None = Field(default=None, validation_alias="DOCKER_HOST")
+    docker_tls_verify: str | None = Field(default=None, validation_alias="DOCKER_TLS_VERIFY")
+    docker_cert_path: str | None = Field(default=None, validation_alias="DOCKER_CERT_PATH")
+
     @field_validator("root", "db_path", "secrets_root")
     @classmethod
     def _absolute(cls, v: str) -> str:
@@ -68,6 +76,9 @@ CLAUDE_RC_CMD: str
 RELAY_REGEX: str
 HOST: str
 PORT: int
+DOCKER_HOST: str | None
+DOCKER_TLS_VERIFY: str | None
+DOCKER_CERT_PATH: str | None
 
 
 def load(config_path: str | None = None) -> Settings:
@@ -88,6 +99,9 @@ def load(config_path: str | None = None) -> Settings:
         RELAY_REGEX=settings.relay_regex,
         HOST=settings.host,
         PORT=settings.port,
+        DOCKER_HOST=settings.docker_host,
+        DOCKER_TLS_VERIFY=settings.docker_tls_verify,
+        DOCKER_CERT_PATH=settings.docker_cert_path,
     )
     return settings
 
