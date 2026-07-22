@@ -243,6 +243,33 @@ pre.log {
 .provider-gitlab { background: #fc6d26; color: #1f1300; }
 .cred-row .del { background: transparent; color: var(--red); border: 1px solid var(--red); padding: .3rem .7rem; }
 
+.cred-row-wrap {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: .6rem .8rem;
+}
+.cred-row-wrap .cred-row { background: none; border: none; padding: 0; }
+.cred-identity { margin-top: .5rem; }
+.cred-identity summary {
+  cursor: pointer;
+  font-size: .8rem;
+  color: var(--muted);
+  user-select: none;
+}
+.cred-identity[open] summary { margin-bottom: .5rem; }
+.cred-identity-form { display: flex; gap: .5rem; flex-wrap: wrap; margin-bottom: .4rem; }
+.cred-identity-form input {
+  flex: 1 1 180px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: .45rem .6rem;
+  border-radius: 8px;
+}
+.cred-identity p.muted { font-size: .76rem; margin: 0; }
+.identity-result { font-size: .8rem; color: var(--green); margin: .4rem 0 0; }
+
 .cred-form { display: flex; flex-direction: column; gap: .6rem; }
 .cred-form-main, .cred-form-adv { display: flex; gap: .5rem; flex-wrap: wrap; }
 .cred-form input {

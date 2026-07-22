@@ -123,6 +123,13 @@ derived or defaulted (tucked behind *Advanced*):
 - **Commit identity** (`user.name`/`user.email`) is optional and also under
   Advanced; when set, the agent *commits* as that identity, not just pushes.
 
+**Updating a credential's commit identity later** — each credential in the list
+has an *Edit commit identity* disclosure. Saving it updates the stored identity
+and also runs `git config user.name`/`user.email` in **every existing working
+tree** that was cloned with that credential (not just future ones); leaving a
+field blank clears it there too. Working trees that were already cleaned up are
+skipped.
+
 Under the hood:
 
 - **Storage** — the token is encrypted at rest with `FLEET_SECRET_KEY` (Fernet);

@@ -77,6 +77,51 @@ def _git(workdir: str, *args: str) -> None:
     subprocess.run(["git", "-C", workdir, *args], capture_output=True, check=True)
 
 
+def _set_git_identity(workdir: str, git_name: str | None, git_email: str | None) -> bool:
+    """Set (or, if blank, clear) local commit identity in one working tree.
+    Clearing removes the override so the clone falls back to any global git
+    identity, mirroring what a fresh spawn does when no identity is given.
+    Never raises; returns False if the working tree is missing or a git
+    command failed."""
+    if not os.path.isdir(workdir):
+        return False
+    ok = True
+    for key, value in (("user.name", git_name), ("user.email", git_email)):
+        try:
+            if value:
+                _git(workdir, "config", key, value)
+            else:
+                r = subprocess.run(
+                    ["git", "-C", workdir, "config", "--unset", key],
+                    capture_output=True,
+                )
+                # exit 5 = key wasn't set; nothing to clear, not a failure.
+                if r.returncode not in (0, 5):
+                    ok = False
+        except subprocess.CalledProcessError:
+            ok = False
+    return ok
+
+
+def update_credential_identity(cid: str, git_name: str | None, git_email: str | None) -> dict:
+    """Update a credential's stored commit identity and propagate it to every
+    existing working tree that was cloned with this credential (skipping ones
+    whose directory is already gone, e.g. cleaned-up orphans)."""
+    if db.get_credential(cid) is None:
+        raise SpawnError("No such credential.")
+    db.update_credential_identity(cid, git_name or None, git_email or None)
+
+    updated = failed = 0
+    for row in db.instances_by_credential(cid):
+        if not os.path.isdir(row["workdir"]):
+            continue  # nothing to update; workdir already cleaned up
+        if _set_git_identity(row["workdir"], git_name, git_email):
+            updated += 1
+        else:
+            failed += 1
+    return {"updated": updated, "failed": failed}
+
+
 def _to_https(repo_url: str, fallback_host: str) -> str:
     """Normalize a repo URL to a token-less HTTPS URL so the credential store
     helper applies. Handles https(with creds), git@host:path, and ssh://."""

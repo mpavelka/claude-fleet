@@ -143,6 +143,21 @@ def get_credential(cid) -> sqlite3.Row | None:
         return c.execute("SELECT * FROM credentials WHERE id = ?", (cid,)).fetchone()
 
 
+def update_credential_identity(cid, git_name, git_email) -> None:
+    with _connect() as c:
+        c.execute(
+            "UPDATE credentials SET git_name = ?, git_email = ? WHERE id = ?",
+            (git_name, git_email, cid),
+        )
+
+
+def instances_by_credential(cid) -> list[sqlite3.Row]:
+    with _connect() as c:
+        return c.execute(
+            "SELECT * FROM instances WHERE credential_id = ?", (cid,)
+        ).fetchall()
+
+
 def delete_credential(cid) -> None:
     with _connect() as c:
         c.execute("DELETE FROM credentials WHERE id = ?", (cid,))

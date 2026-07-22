@@ -187,6 +187,22 @@ def create_credential(
     return _refresh()
 
 
+@app.post("/credentials/{cid}/identity", response_class=HTMLResponse)
+def set_credential_identity(
+    request: Request, cid: str, git_name: str = Form(""), git_email: str = Form("")
+):
+    try:
+        result = manager.update_credential_identity(
+            cid, git_name.strip() or None, git_email.strip() or None
+        )
+    except manager.SpawnError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+    return _render(
+        request, "_credential_list.html",
+        credentials=db.all_credentials(), identity_cred=cid, identity_result=result,
+    )
+
+
 @app.post("/credentials/{cid}/delete")
 def delete_credential(cid: str):
     db.delete_credential(cid)
