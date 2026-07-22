@@ -15,9 +15,13 @@ link and QR code surfaced in the UI.
   Claude's changes. The dashboard lists these orphans (including untracked
   directories left over from crashes) and offers a one-click cleanup.
 - **Details & logs** — every card links to a detail page showing the instance's
-  metadata and its captured session log (the tmux pane output). This is the
-  place to look when an instance dies immediately / shows as `orphan` — the log
-  says why (e.g. not signed in, or the workspace-trust dialog wasn't accepted).
+  metadata and its session log. For a **running** instance this is a live
+  `tmux capture-pane` snapshot — the actual rendered screen, refreshed every
+  2s — rather than the raw piped byte stream, which would otherwise show the
+  same redrawing status block duplicated over and over (remote-control repaints
+  it every few seconds). For a **dead/orphaned** instance (no pane left to
+  snapshot) it falls back to the historical captured log, which is exactly
+  what says why it exited (e.g. not signed in, workspace trust not accepted).
 - **Re-run** — the detail page of an orphaned instance has a *Re-run session*
   button that relaunches remote-control in the existing working tree (no
   re-clone; git auth and trust are already in place). Handy after fixing

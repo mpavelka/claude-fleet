@@ -103,7 +103,7 @@ def instance_detail(request: Request, iid: str):
     item = manager.get_instance(iid)
     if item is None:
         raise HTTPException(status_code=404, detail="No such instance.")
-    return _render(request, "instance.html", i=item, log=manager.instance_log(item["workdir"]))
+    return _render(request, "instance.html", i=item, log=manager.instance_log(item))
 
 
 @app.get("/instances/{iid}/log", response_class=HTMLResponse)
@@ -111,7 +111,7 @@ def instance_log(request: Request, iid: str):
     item = manager.get_instance(iid)
     if item is None:
         raise HTTPException(status_code=404, detail="No such instance.")
-    return _render(request, "_log.html", i=item, log=manager.instance_log(item["workdir"]))
+    return _render(request, "_log.html", i=item, log=manager.instance_log(item))
 
 
 @app.post("/instances/{iid}/kill", response_class=HTMLResponse)

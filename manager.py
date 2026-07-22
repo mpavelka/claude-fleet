@@ -417,15 +417,59 @@ def get_instance(iid: str) -> dict | None:
 
 _ANSI_RE = re.compile(r"\x1b\[[0-9;?]*[ -/]*[@-~]|\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)")
 
+_LOG_TRUNCATE_ABOVE = 1_000_000  # bytes; keep the file from growing unbounded
+_LOG_TRUNCATE_KEEP = 200_000
 
-def instance_log(workdir: str, max_bytes: int = 200_000) -> str:
-    """Return the captured tmux pane output for an instance, cleaned of ANSI
-    escapes. Reads the tail so a long-running session's log stays bounded."""
+
+def _truncate_log_if_large(path: str) -> None:
+    """remote-control redraws its status a few times a minute for as long as a
+    session runs, and tmux pipe-pane appends every redraw verbatim -- so the
+    file grows forever. Cap it by keeping only the tail."""
+    try:
+        size = os.path.getsize(path)
+        if size <= _LOG_TRUNCATE_ABOVE:
+            return
+        with open(path, "rb") as fh:
+            fh.seek(size - _LOG_TRUNCATE_KEEP)
+            tail = fh.read()
+        with open(path, "wb") as fh:
+            fh.write(tail)
+    except OSError:
+        pass
+
+
+def instance_log(item: dict, max_bytes: int = 200_000) -> str:
+    """The log to show for an instance.
+
+    For a RUNNING instance, remote-control repaints a small status display in
+    place every few seconds; tmux pipe-pane captures that as raw bytes (every
+    repaint appended, not overwritten), which looks like duplicated/looping
+    output. `tmux capture-pane` instead returns the *rendered* screen -- i.e.
+    what a person attached to the session actually sees -- so it's always a
+    single, current, non-duplicated snapshot.
+
+    For a DEAD/orphaned instance there's no pane left to capture, so this falls
+    back to the historical `.relay.log` tail (ANSI-stripped) -- what was on
+    screen when the session exited, which is exactly what's needed to diagnose
+    why (e.g. a trust or login error printed once before exit)."""
+    workdir = item.get("workdir") if item else None
     if not workdir:
         return ""
+
+    if item.get("running") and item.get("tmux_session"):
+        r = subprocess.run(
+            ["tmux", "capture-pane", "-p", "-t", item["tmux_session"]],
+            capture_output=True, text=True,
+        )
+        if r.returncode == 0:
+            return r.stdout.rstrip("\n")
+        # Session may have died between the status check and this call; fall
+        # through to the historical log below.
+
     path = os.path.join(workdir, ".relay.log")
     if not os.path.isfile(path):
         return ""
+    _truncate_log_if_large(path)
     try:
         size = os.path.getsize(path)
         with open(path, "rb") as fh:
