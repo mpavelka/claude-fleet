@@ -50,8 +50,20 @@ def _probe_docker() -> dict:
     item = _probe_tool("docker", ["--version"], required=False)
     if item["state"] != "ok":
         return item
-    rc, server = _run(["docker", "info", "--format", "{{.ServerVersion}}"])
-    if rc == 0 and server:
+    # Check stdout specifically -- the docker CLI can exit 0 even when it
+    # can't reach the daemon, printing its "Cannot connect..." message to
+    # stderr only. _run()'s stdout-or-stderr fallback (fine for version
+    # probing) would otherwise read that error text as if it were the server
+    # version.
+    try:
+        r = subprocess.run(
+            ["docker", "info", "--format", "{{.ServerVersion}}"],
+            capture_output=True, text=True, timeout=_TIMEOUT,
+        )
+        server = r.stdout.strip()
+    except (subprocess.TimeoutExpired, OSError):
+        server = ""
+    if server:
         item["detail"] = f"daemon running (server {server})"
     else:
         item["state"] = "warn"

@@ -48,6 +48,26 @@ python app.py -c /etc/claude-fleet.env   # or point at a specific config file
 By default the server listens on `127.0.0.1:8700`. Open http://127.0.0.1:8700
 locally, or put it behind the reverse proxy below.
 
+## Running as a container
+
+A multi-arch image (amd64 + arm64, built from the [`Dockerfile`](Dockerfile))
+is published to `ghcr.io/mpavelka/claude-fleet` by
+[.github/workflows/docker-publish.yml](.github/workflows/docker-publish.yml)
+on every push to `main` and on version tags.
+
+```sh
+docker run -d --name claude-fleet -p 8700:8700 \
+  -v claude-fleet-data:/data \
+  -e FLEET_SECRET_KEY=... \
+  ghcr.io/mpavelka/claude-fleet:latest
+```
+
+All state (SQLite DB, per-instance clones, per-instance git credential files)
+lives under `/data` in the container — mount a volume there. For a production
+Kubernetes (K3s) deployment, including how to safely let spawned agent
+sessions run Docker commands of their own without any path to host root, see
+[docs/deployment-k3s.md](docs/deployment-k3s.md).
+
 All settings can come from a **config file**, real **environment variables**, or
 built-in defaults — see [Configuration](#configuration). The quickest start is
 to copy the sample and edit it:

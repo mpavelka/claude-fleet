@@ -1,0 +1,12 @@
+.venv/
+__pycache__/
+*.pyc
+.env
+.git/
+.github/
+.claude/
+docs/
+*.pdf
+*.md
+Caddyfile
+.env.example
