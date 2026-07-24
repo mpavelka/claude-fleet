@@ -59,7 +59,9 @@ locally, or put it behind the reverse proxy below.
 A multi-arch image (amd64 + arm64, built from the [`Dockerfile`](Dockerfile))
 is published to `ghcr.io/mpavelka/claude-fleet` by
 [.github/workflows/docker-publish.yml](.github/workflows/docker-publish.yml)
-on every push to `main` and on version tags.
+on every push to `main` and on version tags — see
+[docs/publishing.md](docs/publishing.md) for exactly which tags each trigger
+produces and how to cut a release.
 
 ```sh
 docker run -d --name claude-fleet -p 8700:8700 \
