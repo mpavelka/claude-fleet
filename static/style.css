@@ -27,7 +27,7 @@ header h1 { margin: 0; font-size: 1.5rem; }
 header .sub { color: var(--muted); margin: .25rem 0 0; }
 
 /* Environment status indicator */
-.env { flex: none; }
+.env { flex: none; position: relative; }
 .env summary {
   list-style: none;
   cursor: pointer;
@@ -45,12 +45,16 @@ header .sub { color: var(--muted); margin: .25rem 0 0; }
 .env summary::after { content: "▾"; color: var(--muted); font-size: .7rem; }
 .env[open] summary::after { content: "▴"; }
 .env-body {
-  margin-top: .5rem;
+  position: absolute;
+  top: calc(100% + .5rem);
+  right: 0;
+  z-index: 20;
   background: var(--panel);
   border: 1px solid var(--border);
   border-radius: 10px;
   padding: .75rem .9rem;
   min-width: 280px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, .35);
 }
 .env-overall { font-size: .82rem; margin-bottom: .6rem; }
 .env-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: .45rem; }
