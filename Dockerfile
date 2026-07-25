@@ -40,6 +40,17 @@ RUN set -eux; \
     curl -fsSL "https://download.docker.com/linux/static/stable/${docker_arch}/docker-${DOCKER_CLI_VERSION}.tgz" \
         | tar -xz --strip-components=1 -C /usr/local/bin docker/docker
 
+# GitHub CLI, for `gh` inside spawned sessions. A GitHub credential's token is
+# also wired up to authenticate `gh` (see manager.py's _write_gh_config), so
+# an agent can run e.g. `gh pr create` without any extra login step.
+RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg \
+        -o /usr/share/keyrings/githubcli-archive-keyring.gpg \
+    && echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" \
+        > /etc/apt/sources.list.d/github-cli.list \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends gh \
+    && rm -rf /var/lib/apt/lists/*
+
 # --- App --------------------------------------------------------------------
 WORKDIR /app
 

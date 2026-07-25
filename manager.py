@@ -161,6 +161,49 @@ def _remove_secrets(iid: str) -> None:
 
 
 # --------------------------------------------------------------------------- #
+# gh CLI auth (GitHub credentials only)
+# --------------------------------------------------------------------------- #
+def _write_gh_config(iid: str, host: str, username: str, token: str) -> str:
+    """Write a per-instance `gh` CLI config (hosts.yml) next to the git
+    credential file, so `gh` in that instance's tmux session authenticates
+    with the same token used for git. Same rationale as _write_credfile: the
+    token only ever touches disk (0600), never the tmux environment or the
+    pane log. Returns the config directory (for GH_CONFIG_DIR)."""
+    gh_dir = os.path.join(config.SECRETS_ROOT, iid, "gh")
+    os.makedirs(gh_dir, mode=0o700, exist_ok=True)
+    hosts_file = os.path.join(gh_dir, "hosts.yml")
+    quoted = token.replace("\\", "\\\\").replace('"', '\\"')
+    content = (
+        f"{host}:\n"
+        f'    oauth_token: "{quoted}"\n'
+        f"    user: {username}\n"
+        f"    git_protocol: https\n"
+    )
+    fd = os.open(hosts_file, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    with os.fdopen(fd, "w") as fh:
+        fh.write(content)
+    return gh_dir
+
+
+def _gh_config_dir_if_exists(iid: str) -> str | None:
+    """Whether a gh config was written for this instance at spawn time (i.e.
+    it was spawned with a GitHub credential). The file persists across a
+    rerun same as the git credential file does, so this just needs to be
+    re-pointed at, not rewritten."""
+    d = os.path.join(config.SECRETS_ROOT, iid, "gh")
+    return d if os.path.isdir(d) else None
+
+
+def _gh_env_flags(gh_config_dir: str | None) -> list[str]:
+    """Point a spawned session's `gh` CLI at its per-instance config, or clear
+    it. Always passed explicitly for the same reason as _docker_env_flags:
+    the tmux server caches a global environment from whichever session first
+    started it, so omitting this would leak a stale value into a session that
+    shouldn't have one."""
+    return ["-e", f"GH_CONFIG_DIR={gh_config_dir or ''}"]
+
+
+# --------------------------------------------------------------------------- #
 # Claude workspace trust + remote-control confirmation
 # --------------------------------------------------------------------------- #
 def _claude_json_path() -> str:
@@ -283,6 +326,7 @@ def spawn(repo_url: str, name: str | None, credential_id: str | None = None) -> 
     # Prepare credential material before cloning so the token is never on a
     # command line or in the pane log -- only the credfile path is.
     credfile = None
+    gh_config_dir = None
     clone_url = repo_url
     if cred is not None:
         token = crypto.decrypt(cred["secret_enc"])
@@ -295,6 +339,8 @@ def spawn(repo_url: str, name: str | None, credential_id: str | None = None) -> 
             raise SpawnError(f"Could not determine the git host from '{repo_url}'.")
         username = (cred["username"] or "oauth2").strip()
         credfile = _write_credfile(iid, host, username, token)
+        if cred["provider"] == "github":
+            gh_config_dir = _write_gh_config(iid, host, username, token)
 
     if credfile:
         clone_cmd = [
@@ -327,7 +373,8 @@ def spawn(repo_url: str, name: str | None, credential_id: str | None = None) -> 
     session = f"claude-{iid}"
     launch = subprocess.run(
         ["tmux", "new-session", "-d", "-s", session, "-x", "220", "-y", "50",
-         *_docker_env_flags(), "-c", workdir, _remote_control_cmd(label)],
+         *_docker_env_flags(), *_gh_env_flags(gh_config_dir),
+         "-c", workdir, _remote_control_cmd(label)],
         capture_output=True,
         text=True,
     )
@@ -378,9 +425,11 @@ def rerun(iid: str) -> None:
 
     _trust_workdir(workdir)  # idempotent; also covers a trust entry lost since
 
+    gh_config_dir = _gh_config_dir_if_exists(iid)
     launch = subprocess.run(
         ["tmux", "new-session", "-d", "-s", session, "-x", "220", "-y", "50",
-         *_docker_env_flags(), "-c", workdir, _remote_control_cmd(row["name"])],
+         *_docker_env_flags(), *_gh_env_flags(gh_config_dir),
+         "-c", workdir, _remote_control_cmd(row["name"])],
         capture_output=True,
         text=True,
     )

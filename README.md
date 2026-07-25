@@ -125,9 +125,10 @@ Keychain (macOS) — the dashboard never stores them itself.
 
 The header has an **Environment** indicator (a colored dot you can expand) that
 probes the tools and services the app depends on: `tmux`, `git`, `claude`
-(required), and `docker` plus credential encryption (optional). It shows each
-one's version and flags anything missing or degraded (e.g. docker installed but
-the daemon isn't running). It refreshes every 15s while expanded.
+(required), and `docker`, `gh` plus credential encryption (optional). It shows
+each one's version and flags anything missing or degraded (e.g. docker
+installed but the daemon isn't running). It refreshes every 15s while
+expanded.
 
 ## Per-instance git credentials
 
@@ -168,7 +169,15 @@ Under the hood:
   is pointed at it (inherited global helpers are reset first, so instances stay
   isolated). The token never appears on a command line, in `.git/config`, or in
   the relay log. Any `git` command Claude runs authenticates automatically.
-- **Cleanup** — removing an instance's working tree also deletes its secret file.
+- **`gh` CLI** — if the credential's provider is **GitHub**, the same token is
+  also written to a per-instance `gh` config (`hosts.yml`, mode 0600, next to
+  the git credential file) and that session's `GH_CONFIG_DIR` points at it. So
+  `gh pr create`, `gh issue view`, etc. inside that instance authenticate the
+  same way `git` does — no separate `gh auth login` needed. GitLab credentials
+  don't get this (`gh` is GitHub-only); the `gh` CLI itself ships in the Docker
+  image.
+- **Cleanup** — removing an instance's working tree also deletes its secret file
+  (and `gh` config, if any).
 
 The UI lives in `templates/_credential_list.html` (the pool) and
 `templates/_credential_form.html` (the add form).
@@ -195,7 +204,7 @@ same whether set in the environment or the file:
 |--------------------|----------------------------------|------------------------------------------------|
 | `FLEET_ROOT`       | `~/.claude-fleet/instances`      | Where per-instance clones live                 |
 | `FLEET_DB`         | `~/.claude-fleet/fleet.db`       | SQLite state file                              |
-| `FLEET_SECRETS`    | `~/.claude-fleet/secrets`        | Per-instance git credential files (0600)       |
+| `FLEET_SECRETS`    | `~/.claude-fleet/secrets`        | Per-instance git credential (and `gh` config) files (0600) |
 | `FLEET_SECRET_KEY` | _(unset)_                        | Fernet key encrypting credentials; `python crypto.py` mints one |
 | `FLEET_HOST`       | `127.0.0.1`                      | Bind address (keep loopback in production)     |
 | `FLEET_PORT`       | `8700`                           | Bind port                                      |

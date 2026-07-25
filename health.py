@@ -159,6 +159,7 @@ def check() -> dict:
         _probe_tool("tmux", ["-V"], required=True),
         _probe_tool("git", ["--version"], required=True),
         _probe_tool("claude", ["--version"], required=True),
+        _probe_tool("gh", ["--version"], required=False),
         _probe_claude_account(),
         _probe_docker(),
         _probe_docker_sandbox(),
