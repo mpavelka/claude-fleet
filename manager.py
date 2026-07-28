@@ -243,6 +243,61 @@ def _trust_workdir(workdir: str) -> None:
     os.replace(tmp, path)  # atomic
 
 
+def _claude_md_path() -> str:
+    """Where Claude's global memory file lives. Same CLAUDE_CONFIG_DIR override
+    as _claude_json_path, but this is a different file (CLAUDE.md, not
+    .claude.json) and defaults to ~/.claude, not ~ itself."""
+    base = os.environ.get("CLAUDE_CONFIG_DIR") or os.path.expanduser("~/.claude")
+    return os.path.join(base, "CLAUDE.md")
+
+
+_BRIEFING_BEGIN = "<!-- claude-fleet:environment-briefing:begin (auto-generated from FLEET_ENVIRONMENT_BRIEFING; edits here are overwritten) -->"
+_BRIEFING_END = "<!-- claude-fleet:environment-briefing:end -->"
+_BRIEFING_RE = re.compile(
+    re.escape(_BRIEFING_BEGIN) + r".*?" + re.escape(_BRIEFING_END) + r"\n?",
+    re.DOTALL,
+)
+
+
+def _write_environment_briefing() -> None:
+    """Brief every spawned instance on deployment-specific facts (e.g. "this
+    cluster needs docker --network host") by writing config.ENVIRONMENT_BRIEFING
+    into Claude's global memory file, which every instance already reads on
+    startup -- no per-instance plumbing needed since all instances share one
+    CLAUDE_CONFIG_DIR. Marked with begin/end comments so re-spawning replaces
+    just that section (picking up config changes) rather than duplicating it,
+    and any content an operator has outside the markers is left alone. Never
+    raises; a briefing is a nice-to-have, not worth failing a spawn over."""
+    briefing = (config.ENVIRONMENT_BRIEFING or "").strip()
+    path = _claude_md_path()
+    try:
+        with open(path, "r") as fh:
+            existing = fh.read()
+    except FileNotFoundError:
+        existing = ""
+    except OSError:
+        return
+
+    rest = _BRIEFING_RE.sub("", existing).rstrip("\n")
+    if briefing:
+        section = f"{_BRIEFING_BEGIN}\n{briefing}\n{_BRIEFING_END}\n"
+        new_content = f"{rest}\n\n{section}" if rest else section
+    else:
+        new_content = f"{rest}\n" if rest else ""
+
+    if new_content == existing:
+        return
+    try:
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        tmp = f"{path}.fleet-{os.getpid()}.tmp"
+        fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o644)
+        with os.fdopen(fd, "w") as fh:
+            fh.write(new_content)
+        os.replace(tmp, path)  # atomic
+    except OSError:
+        pass
+
+
 _RC_PROMPT = "Enable Remote Control?"
 
 
@@ -368,6 +423,7 @@ def spawn(repo_url: str, name: str | None, credential_id: str | None = None) -> 
 
     # Pre-accept the workspace-trust dialog so remote-control doesn't exit.
     _trust_workdir(workdir)
+    _write_environment_briefing()
 
     label = (name or "").strip() or _repo_basename(repo_url)
     session = f"claude-{iid}"
@@ -424,6 +480,7 @@ def rerun(iid: str) -> None:
         return  # already running
 
     _trust_workdir(workdir)  # idempotent; also covers a trust entry lost since
+    _write_environment_briefing()
 
     gh_config_dir = _gh_config_dir_if_exists(iid)
     launch = subprocess.run(
