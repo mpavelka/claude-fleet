@@ -214,6 +214,37 @@ same whether set in the environment or the file:
 | `DOCKER_HOST`      | _(unset)_                        | If set, spawned sessions' `docker` CLI points here instead of having no Docker access — see [docs/deployment-k3s.md](docs/deployment-k3s.md) |
 | `DOCKER_TLS_VERIFY`| _(unset)_                        | Passed through to spawned sessions alongside `DOCKER_HOST`     |
 | `DOCKER_CERT_PATH` | _(unset)_                        | Passed through to spawned sessions alongside `DOCKER_HOST`     |
+| `FLEET_ENVIRONMENT_BRIEFING` | _(unset)_               | Markdown briefed into every spawned instance — see **Environment briefing** below |
+
+## Environment briefing
+
+Every spawned instance starts with zero awareness of the environment it's
+actually running in — e.g. on a K3s deployment whose `docker-sandbox` runs
+with `--iptables=false`, an agent has to discover through trial and error
+that it needs `docker run --network host` for outbound connectivity. Set
+`FLEET_ENVIRONMENT_BRIEFING` to a block of Markdown and it's written into
+Claude's global memory file (`$CLAUDE_CONFIG_DIR/CLAUDE.md`, default
+`~/.claude/CLAUDE.md`) every time an instance is spawned or re-run — no
+manual filesystem edits, and every instance reads it automatically at
+startup since it's Claude's own memory mechanism, not something Fleet
+invented.
+
+The write is additive: it's wrapped in `<!-- claude-fleet:environment-briefing:...
+-->` marker comments, so any other content already in `CLAUDE.md` is left
+alone, and changing (or unsetting) the setting updates (or removes) just that
+section on the next spawn/rerun rather than duplicating it.
+
+```sh
+# In ~/.claude-fleet/.env (or wherever --config points):
+FLEET_ENVIRONMENT_BRIEFING="This cluster's docker-sandbox runs with --iptables=false.
+Use \`docker run --network host ...\` for outbound connectivity; a bridge
+network will silently have no internet access.
+Container registry mirror: registry.internal:5000"
+```
+
+Keep deployment-wide facts like this here, separate from a repo's own
+`CLAUDE.md` (which stays about that codebase, not the infrastructure it
+happens to run on this week).
 
 ## How remote-control spawning works
 

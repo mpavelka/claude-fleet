@@ -47,6 +47,14 @@ class Settings(BaseSettings):
         default=r"https://claude\.ai/code/session_\S+", validation_alias="RELAY_REGEX"
     )
 
+    # Markdown briefed into every spawned instance's global Claude memory file
+    # ($CLAUDE_CONFIG_DIR/CLAUDE.md) so agents start with deployment-specific
+    # facts (e.g. "this cluster needs docker --network host") instead of
+    # discovering them through trial and error. See manager._write_briefing.
+    environment_briefing: str | None = Field(
+        default=None, validation_alias="FLEET_ENVIRONMENT_BRIEFING"
+    )
+
     # Server
     host: str = Field(default="127.0.0.1", validation_alias="FLEET_HOST")
     port: int = Field(default=8700, validation_alias="FLEET_PORT")
@@ -74,6 +82,7 @@ SECRET_KEY: str | None
 AUTH_TOKEN: str | None
 CLAUDE_RC_CMD: str
 RELAY_REGEX: str
+ENVIRONMENT_BRIEFING: str | None
 HOST: str
 PORT: int
 DOCKER_HOST: str | None
@@ -97,6 +106,7 @@ def load(config_path: str | None = None) -> Settings:
         AUTH_TOKEN=settings.auth_token,
         CLAUDE_RC_CMD=settings.claude_rc_cmd,
         RELAY_REGEX=settings.relay_regex,
+        ENVIRONMENT_BRIEFING=settings.environment_briefing,
         HOST=settings.host,
         PORT=settings.port,
         DOCKER_HOST=settings.docker_host,
