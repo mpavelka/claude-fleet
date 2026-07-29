@@ -63,10 +63,19 @@ def index(request: Request):
         "index.html",
         instances=manager.list_instances(),
         credentials=db.all_credentials(),
-        secret_ready=crypto.available(),
-        secret_message=crypto.key_message(),
         health=health.check(),
         claude=auth_claude.login_state(),
+    )
+
+
+@app.get("/credentials", response_class=HTMLResponse)
+def credentials_page(request: Request):
+    return _render(
+        request,
+        "credentials.html",
+        credentials=db.all_credentials(),
+        secret_ready=crypto.available(),
+        secret_message=crypto.key_message(),
     )
 
 
