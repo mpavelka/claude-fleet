@@ -106,10 +106,21 @@ def _set_git_identity(workdir: str, git_name: str | None, git_email: str | None)
 def update_credential_identity(cid: str, git_name: str | None, git_email: str | None) -> dict:
     """Update a credential's stored commit identity and propagate it to every
     existing working tree that was cloned with this credential (skipping ones
-    whose directory is already gone, e.g. cleaned-up orphans)."""
-    if db.get_credential(cid) is None:
+    whose directory is already gone, e.g. cleaned-up orphans). For a GitHub
+    credential, also (re)write that instance's `gh` CLI config, so instances
+    whose gh config is missing or stale (e.g. spawned before this wiring
+    existed) get it backfilled. Note: an already-running session's tmux
+    environment was fixed at launch, so this only takes effect there on the
+    next kill+rerun, not immediately."""
+    cred = db.get_credential(cid)
+    if cred is None:
         raise SpawnError("No such credential.")
     db.update_credential_identity(cid, git_name or None, git_email or None)
+
+    token = username = None
+    if cred["provider"] == "github":
+        token = crypto.decrypt(cred["secret_enc"])
+        username = (cred["username"] or "oauth2").strip()
 
     updated = failed = 0
     for row in db.instances_by_credential(cid):
@@ -119,7 +130,21 @@ def update_credential_identity(cid: str, git_name: str | None, git_email: str | 
             updated += 1
         else:
             failed += 1
+        if token is not None:
+            _refresh_gh_config(row["id"], row["repo_url"], cred, username, token)
     return {"updated": updated, "failed": failed}
+
+
+def _refresh_gh_config(iid: str, repo_url: str, cred, username: str, token: str) -> None:
+    """Best-effort (re)write of an instance's `gh` config file. Never raises:
+    this is a backfill, not something worth failing the identity save over."""
+    try:
+        fallback_host = cred["host"] if "host" in cred.keys() else ""
+        host = urlsplit(_to_https(repo_url, fallback_host)).hostname or fallback_host
+        if host:
+            _write_gh_config(iid, host, username, token)
+    except OSError:
+        pass
 
 
 def _to_https(repo_url: str, fallback_host: str) -> str:
