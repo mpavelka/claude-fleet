@@ -192,8 +192,34 @@ pre.log {
   border-radius: 8px;
 }
 
-.creds, .account { margin-top: 2.5rem; border-top: 1px solid var(--border); padding-top: 1.5rem; }
-.creds h2, .account h2 { font-size: 1.1rem; margin: 0 0 1rem; }
+.layout { display: flex; gap: 2rem; align-items: flex-start; }
+.sidebar { flex: 0 0 260px; display: flex; flex-direction: column; gap: 1rem; }
+.content { flex: 1; min-width: 0; }
+@media (max-width: 720px) {
+  .layout { flex-direction: column; }
+  .sidebar { flex: 1 1 auto; width: 100%; }
+}
+
+.sidebar-section {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 1rem;
+}
+.sidebar-section h2 { font-size: 1rem; margin: 0 0 .75rem; }
+.sidebar-link {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: .5rem;
+  color: var(--text);
+  text-decoration: none;
+  font-weight: 600;
+}
+.sidebar-link:hover { color: var(--accent); }
+
+.page-section { margin-bottom: 2rem; }
+.page-section h2 { font-size: 1.1rem; margin: 0 0 1rem; }
 
 /* Claude account */
 .claude-in, .claude-out { display: flex; align-items: center; gap: .6rem; flex-wrap: wrap; }
