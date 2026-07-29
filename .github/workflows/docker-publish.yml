@@ -73,7 +73,11 @@ jobs:
         run: |
           TAG="${GITHUB_REF_NAME}"
           if gh release view "$TAG" >/dev/null 2>&1; then
-            gh release edit "$TAG" --generate-notes
+            # `gh release edit` has no --generate-notes flag, so fetch the
+            # generated notes via the API and apply them explicitly.
+            NOTES=$(gh api repos/${{ github.repository }}/releases/generate-notes \
+              -f tag_name="$TAG" -f target_commitish=main --jq .body)
+            gh release edit "$TAG" --notes "$NOTES"
           else
             gh release create "$TAG" --target main --generate-notes
           fi
