@@ -400,7 +400,9 @@ def spawn(repo_url: str, name: str | None, credential_id: str | None = None) -> 
         raise SpawnError("Selected credential no longer exists.")
 
     iid = uuid.uuid4().hex[:12]
-    workdir = os.path.join(config.FLEET_ROOT, iid)
+    slug = _repo_slug(repo_url)
+    dirname = f"{slug}-{iid}" if slug else iid
+    workdir = os.path.join(config.FLEET_ROOT, dirname)
     os.makedirs(config.FLEET_ROOT, exist_ok=True)
 
     # Prepare credential material before cloning so the token is never on a
@@ -546,11 +548,15 @@ def cleanup(workdir: str) -> None:
 
     row = db.get_by_workdir(absw)
     if row is not None:
+        iid = row["id"]
         _kill_tmux(row["tmux_session"])
         db.delete(row["id"])
+    else:
+        # Untracked directory: recover the id from the dirname (old-style
+        # dirs are a bare id; new-style ones are `<repo-slug>-<id>`).
+        iid = _iid_from_dirname(os.path.basename(absw))
     shutil.rmtree(absw, ignore_errors=True)
-    # Drop any credential material for this instance (id == workdir basename).
-    _remove_secrets(os.path.basename(absw))
+    _remove_secrets(iid)
 
 
 # --------------------------------------------------------------------------- #
@@ -685,6 +691,32 @@ def instance_log(item: dict, max_bytes: int = 200_000) -> str:
 def _repo_basename(repo_url: str) -> str:
     tail = repo_url.rstrip("/").rsplit("/", 1)[-1]
     return tail[:-4] if tail.endswith(".git") else tail
+
+
+_SLUG_RE = re.compile(r"[^a-z0-9._-]+")
+_SLUG_MAX_LEN = 40
+
+
+def _repo_slug(repo_url: str) -> str:
+    """Filesystem-safe slug derived from a repo URL's last path segment, used
+    to prefix workspace directory names so FLEET_ROOT/ is self-describing
+    (e.g. claude-fleet-a3f9c21b7de4 instead of a3f9c21b7de4). Lowercases,
+    collapses anything outside [a-z0-9._-] to a single '-', and caps the
+    length. Returns "" -- caller then falls back to the bare id -- when the
+    URL yields nothing usable."""
+    slug = _SLUG_RE.sub("-", _repo_basename(repo_url).lower()).strip("-")
+    return slug[:_SLUG_MAX_LEN].strip("-")
+
+
+_IID_RE = re.compile(r"(?:^|-)([0-9a-f]{12})$")
+
+
+def _iid_from_dirname(name: str) -> str:
+    """Recover an instance id from a workspace directory basename. Old-style
+    dirs are bare ids; new-style ones are `<repo-slug>-<id>` -- either way the
+    id is the trailing 12 lowercase hex characters."""
+    m = _IID_RE.search(name)
+    return m.group(1) if m else name
 
 
 def _dir_ctime(path: str) -> str:
