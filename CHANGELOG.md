@@ -6,6 +6,18 @@ section below is generated automatically (from merged PRs) when a
 
 ## [Unreleased]
 
+## v0.0.5 - 2026-08-01
+
+<!-- Release notes generated using configuration in .github/release.yml at v0.0.5 -->
+
+## What's Changed
+### Other Changes
+* Prefix workspace directories with the repository name by @pavelkaassistant in https://github.com/mpavelka/claude-fleet/pull/14
+
+
+**Full Changelog**: https://github.com/mpavelka/claude-fleet/compare/v0.0.4...v0.0.5
+
+
 ## v0.0.4 - 2026-08-01
 
 <!-- Release notes generated using configuration in .github/release.yml at v0.0.4 -->
