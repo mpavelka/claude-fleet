@@ -139,12 +139,103 @@ def _refresh_gh_config(iid: str, repo_url: str, cred, username: str, token: str)
     """Best-effort (re)write of an instance's `gh` config file. Never raises:
     this is a backfill, not something worth failing the identity save over."""
     try:
-        fallback_host = cred["host"] if "host" in cred.keys() else ""
-        host = urlsplit(_to_https(repo_url, fallback_host)).hostname or fallback_host
+        host = _resolve_host(repo_url, cred)
         if host:
             _write_gh_config(iid, host, username, token)
     except OSError:
         pass
+
+
+def _resolve_host(repo_url: str, cred) -> str | None:
+    """Git host for a credential's instance: derived from the repo URL (the
+    token itself doesn't encode it); the credential's stored host is only a
+    fallback for URLs urlsplit can't parse cleanly."""
+    fallback_host = cred["host"] if "host" in cred.keys() else ""
+    return urlsplit(_to_https(repo_url, fallback_host)).hostname or fallback_host or None
+
+
+def update_credential_token(cid: str, token: str) -> dict:
+    """Rotate a credential's stored token -- e.g. after regenerating it with
+    different scopes -- and push the new token straight into the git-credential
+    file and `gh` config of every existing instance using it. Both files are
+    re-read on every git/gh invocation, so a running session picks up the new
+    token immediately: no interactive `gh auth refresh` (there's no TTY for it
+    here) and no session restart required."""
+    cred = db.get_credential(cid)
+    if cred is None:
+        raise SpawnError("No such credential.")
+    db.update_credential_token(cid, crypto.encrypt(token))
+
+    username = (cred["username"] or "oauth2").strip()
+    updated = failed = 0
+    for row in db.instances_by_credential(cid):
+        if not os.path.isdir(row["workdir"]):
+            continue
+        host = _resolve_host(row["repo_url"], cred)
+        if not host:
+            failed += 1
+            continue
+        try:
+            _write_credfile(row["id"], host, username, token)
+            if cred["provider"] == "github":
+                _write_gh_config(row["id"], host, username, token)
+        except OSError:
+            failed += 1
+            continue
+        updated += 1
+    return {"updated": updated, "failed": failed}
+
+
+def set_instance_credential(iid: str, credential_id: str | None) -> None:
+    """Point an existing instance's git/gh auth at a different stored
+    credential (or clear it), without re-cloning. Rewrites the instance's
+    git-credential file, its `credential.helper` config, commit identity (if
+    the new credential specifies one), and -- for GitHub -- its `gh` config.
+
+    All of that takes effect immediately in a running session, since git/gh
+    re-read their config files on every invocation. The one exception is
+    GH_CONFIG_DIR, a tmux session environment variable fixed at launch: an
+    instance moving from no GitHub credential to one (or vice versa) needs a
+    kill + re-run before `gh` in that session notices. Swapping between two
+    GitHub credentials on an instance that already had one needs no restart."""
+    row = db.get(iid)
+    if row is None:
+        raise SpawnError("No such instance.")
+    workdir = row["workdir"]
+    if not os.path.isdir(workdir):
+        raise SpawnError("Working tree no longer exists.")
+
+    cred = db.get_credential(credential_id) if credential_id else None
+    if credential_id and cred is None:
+        raise SpawnError("Selected credential no longer exists.")
+
+    if cred is None:
+        r = subprocess.run(
+            ["git", "-C", workdir, "config", "--unset-all", "credential.helper"],
+            capture_output=True,
+        )
+        if r.returncode not in (0, 5):  # 5 = key wasn't set; nothing to clear
+            raise SpawnError("Could not clear this instance's git credential.helper.")
+        _remove_secrets(iid)
+    else:
+        token = crypto.decrypt(cred["secret_enc"])
+        host = _resolve_host(row["repo_url"], cred)
+        if not host:
+            raise SpawnError(f"Could not determine the git host from '{row['repo_url']}'.")
+        username = (cred["username"] or "oauth2").strip()
+        credfile = _write_credfile(iid, host, username, token)
+        _git(workdir, "config", "--replace-all", "credential.helper", "")
+        _git(workdir, "config", "--add", "credential.helper", f"store --file={credfile}")
+        if cred["git_name"]:
+            _git(workdir, "config", "user.name", cred["git_name"])
+        if cred["git_email"]:
+            _git(workdir, "config", "user.email", cred["git_email"])
+        if cred["provider"] == "github":
+            _write_gh_config(iid, host, username, token)
+        else:
+            shutil.rmtree(os.path.join(config.SECRETS_ROOT, iid, "gh"), ignore_errors=True)
+
+    db.set_instance_credential(iid, credential_id)
 
 
 def _to_https(repo_url: str, fallback_host: str) -> str:

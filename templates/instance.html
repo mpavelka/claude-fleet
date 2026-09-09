@@ -44,6 +44,30 @@
       {% endif %}
     </div>
     <div id="action-error"></div>
+
+    {% if i.tracked and i.workdir_exists %}
+    <details class="cred-identity">
+      <summary>Swap credential</summary>
+      <form class="cred-identity-form" hx-post="/instances/{{ i.id }}/credential"
+            hx-target="#action-error" hx-swap="innerHTML">
+        <select name="credential_id">
+          <option value="">no credential (public repo)</option>
+          {% for c in credentials %}
+          <option value="{{ c.id }}"{% if i.credential_id == c.id %} selected{% endif %}>
+            {{ c.name }} ({{ "GitHub" if c.provider == "github" else "GitLab" if c.provider == "gitlab" else "git" }})
+          </option>
+          {% endfor %}
+        </select>
+        <button type="submit">Save</button>
+      </form>
+      <p class="muted">
+        Rewrites this instance's git credential file and <code>gh</code> config
+        in place (no re-clone). Takes effect immediately in a running session,
+        unless it's moving to/from having no GitHub credential at all -- that
+        case needs a kill + re-run for <code>gh</code> to notice.
+      </p>
+    </details>
+    {% endif %}
   </section>
 
   <section class="detail-log">
