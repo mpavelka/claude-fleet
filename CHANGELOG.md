@@ -6,6 +6,18 @@ section below is generated automatically (from merged PRs) when a
 
 ## [Unreleased]
 
+## v0.0.7 - 2026-09-09
+
+<!-- Release notes generated using configuration in .github/release.yml at v0.0.7 -->
+
+## What's Changed
+### Other Changes
+* Add GitHub credential rotation and per-instance credential swap by @pavelkaassistant in https://github.com/mpavelka/claude-fleet/pull/15
+
+
+**Full Changelog**: https://github.com/mpavelka/claude-fleet/compare/v0.0.6...v0.0.7
+
+
 ## v0.0.6 - 2026-09-09
 
 <!-- Release notes generated using configuration in .github/release.yml at v0.0.6 -->
