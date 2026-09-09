@@ -6,6 +6,15 @@ section below is generated automatically (from merged PRs) when a
 
 ## [Unreleased]
 
+## v0.0.6 - 2026-09-09
+
+<!-- Release notes generated using configuration in .github/release.yml at v0.0.6 -->
+
+
+
+**Full Changelog**: https://github.com/mpavelka/claude-fleet/compare/v0.0.5...v0.0.6
+
+
 ## v0.0.5 - 2026-08-01
 
 <!-- Release notes generated using configuration in .github/release.yml at v0.0.5 -->
