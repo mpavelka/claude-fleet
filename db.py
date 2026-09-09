@@ -151,6 +151,14 @@ def update_credential_identity(cid, git_name, git_email) -> None:
         )
 
 
+def update_credential_token(cid, secret_enc) -> None:
+    with _connect() as c:
+        c.execute(
+            "UPDATE credentials SET secret_enc = ? WHERE id = ?",
+            (secret_enc, cid),
+        )
+
+
 def instances_by_credential(cid) -> list[sqlite3.Row]:
     with _connect() as c:
         return c.execute(
@@ -161,3 +169,11 @@ def instances_by_credential(cid) -> list[sqlite3.Row]:
 def delete_credential(cid) -> None:
     with _connect() as c:
         c.execute("DELETE FROM credentials WHERE id = ?", (cid,))
+
+
+def set_instance_credential(iid, credential_id) -> None:
+    with _connect() as c:
+        c.execute(
+            "UPDATE instances SET credential_id = ? WHERE id = ?",
+            (credential_id, iid),
+        )

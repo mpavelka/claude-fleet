@@ -112,7 +112,10 @@ def instance_detail(request: Request, iid: str):
     item = manager.get_instance(iid)
     if item is None:
         raise HTTPException(status_code=404, detail="No such instance.")
-    return _render(request, "instance.html", i=item, log=manager.instance_log(item))
+    return _render(
+        request, "instance.html", i=item, log=manager.instance_log(item),
+        credentials=db.all_credentials(),
+    )
 
 
 @app.get("/instances/{iid}/log", response_class=HTMLResponse)
@@ -136,6 +139,16 @@ def rerun_instance(request: Request, iid: str):
     except manager.SpawnError as exc:
         return _render(request, "_error.html", error=str(exc))
     # Success: reload the detail page so it shows the running session + live log.
+    return Response(status_code=204, headers={"HX-Redirect": f"/instances/{iid}"})
+
+
+@app.post("/instances/{iid}/credential", response_class=HTMLResponse)
+def set_instance_credential(request: Request, iid: str, credential_id: str = Form("")):
+    try:
+        manager.set_instance_credential(iid, credential_id or None)
+    except manager.SpawnError as exc:
+        return _render(request, "_error.html", error=str(exc))
+    # Success: reload the detail page so it shows the new credential in place.
     return Response(status_code=204, headers={"HX-Redirect": f"/instances/{iid}"})
 
 
@@ -209,6 +222,23 @@ def set_credential_identity(
     return _render(
         request, "_credential_list.html",
         credentials=db.all_credentials(), identity_cred=cid, identity_result=result,
+    )
+
+
+@app.post("/credentials/{cid}/token", response_class=HTMLResponse)
+def set_credential_token(request: Request, cid: str, token: str = Form(...)):
+    if not crypto.available():
+        raise HTTPException(
+            status_code=400,
+            detail=f"Cannot store credentials: {crypto.key_message()}",
+        )
+    try:
+        result = manager.update_credential_token(cid, token)
+    except manager.SpawnError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+    return _render(
+        request, "_credential_list.html",
+        credentials=db.all_credentials(), token_cred=cid, token_result=result,
     )
 
 
