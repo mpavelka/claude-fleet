@@ -20,7 +20,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 # Node, for `claude` (npm-distributed). NodeSource's setup script picks the
 # right arch automatically (amd64/arm64).
-RUN curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
+RUN curl -fsSL https://deb.nodesource.com/setup_24.x | bash - \
     && apt-get install -y --no-install-recommends nodejs \
     && rm -rf /var/lib/apt/lists/* \
     && npm install -g @anthropic-ai/claude-code \
@@ -29,7 +29,7 @@ RUN curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
 # Docker CLI *client only* (no daemon) -- lets a spawned session run `docker`
 # against a remote DOCKER_HOST (see deployment docs). Official static binary,
 # arch-aware.
-ARG DOCKER_CLI_VERSION=27.3.1
+ARG DOCKER_CLI_VERSION=29.8.1
 RUN set -eux; \
     arch="$(dpkg --print-architecture)"; \
     case "$arch" in \
