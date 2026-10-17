@@ -249,17 +249,6 @@ def delete_credential(cid: str):
 
 
 # --------------------------------------------------------------------------- #
-# QR codes (served per-instance so card partials stay light)
-# --------------------------------------------------------------------------- #
-@app.get("/instances/{iid}/qr.svg")
-def qr_svg(iid: str):
-    row = db.get(iid)
-    if row is None or not row["relay_url"]:
-        raise HTTPException(status_code=404, detail="No relay URL yet.")
-    return _qr_response(row["relay_url"])
-
-
-# --------------------------------------------------------------------------- #
 # Claude account (server-wide browser OAuth login)
 # --------------------------------------------------------------------------- #
 @app.get("/partials/claude", response_class=HTMLResponse)

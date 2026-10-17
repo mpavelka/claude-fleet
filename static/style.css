@@ -147,9 +147,10 @@ button.rerun { background: var(--green); color: #06210c; }
 }
 .path { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
 
-.relay { display: flex; flex-direction: column; gap: .5rem; margin-top: .25rem; }
-.relay a { color: var(--accent); word-break: break-all; font-size: .85rem; }
-.relay.pending { color: var(--muted); font-size: .85rem; }
+.relay { font-size: .82rem; align-self: flex-start; }
+.relay.connected { color: var(--green); text-decoration: none; }
+.relay.connected:hover { text-decoration: underline; }
+.relay.pending { color: var(--muted); }
 .qr { background: #fff; padding: 6px; border-radius: 8px; align-self: flex-start; }
 
 .actions { margin-top: auto; padding-top: .5rem; display: flex; align-items: center; gap: .75rem; flex-wrap: wrap; }

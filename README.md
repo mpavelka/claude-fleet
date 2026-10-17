@@ -2,15 +2,17 @@
 
 A small dashboard to clone git repos and run many `claude remote-control`
 instances on a server. One repo → many isolated instances, each in its own
-cloned working tree and its own detached tmux session, with the remote-control
-link and QR code surfaced in the UI.
+cloned working tree and its own detached tmux session. Each session is named
+after its instance, so you pick it up from the session list at claude.ai/code
+or in the Claude app.
 
 ## What it does
 
 - **Clone & spawn** — each instance gets a fresh `git clone` under `FLEET_ROOT`
   and a detached tmux session running `claude remote-control`.
 - **Manage** — live green/amber/red status, kill a running instance, and see
-  its relay link + QR code.
+  whether its remote-control session has connected (the card shows
+  *Connected*, linking to the session, once the relay URL appears in its log).
 - **Orphans** — killing an instance keeps its working tree so you can inspect
   Claude's changes. The dashboard lists these orphans (including untracked
   directories left over from crashes) and offers a one-click cleanup.
@@ -265,7 +267,9 @@ Verified against `claude` v2.1.92. On spawn, the app handles everything
    prompt, so it's a no-op otherwise).
 4. **Relay URL** — remote-control prints `https://claude.ai/code/session_<id>`
    inside a terminal hyperlink escape; the scraper reads `<workdir>/.relay.log`,
-   applies `RELAY_REGEX`, and trims trailing control bytes.
+   applies `RELAY_REGEX`, and trims trailing control bytes. Finding it is what
+   flips the card from *Connecting…* to *Connected*; the full URL is shown on
+   the instance's detail page.
 
 Requires a signed-in subscription account (see **Claude account** above). To
 debug a session by hand:
