@@ -55,6 +55,10 @@ class Settings(BaseSettings):
         default=None, validation_alias="FLEET_ENVIRONMENT_BRIEFING"
     )
 
+    # File browser: comma-separated directories the dashboard may list, view
+    # and download from. Unset -> /tmp plus FLEET_ROOT; set to "" to disable.
+    browse_roots: str | None = Field(default=None, validation_alias="FLEET_BROWSE_ROOTS")
+
     # Server
     host: str = Field(default="127.0.0.1", validation_alias="FLEET_HOST")
     port: int = Field(default=8700, validation_alias="FLEET_PORT")
@@ -83,11 +87,20 @@ AUTH_TOKEN: str | None
 CLAUDE_RC_CMD: str
 RELAY_REGEX: str
 ENVIRONMENT_BRIEFING: str | None
+BROWSE_ROOTS: list[str]
 HOST: str
 PORT: int
 DOCKER_HOST: str | None
 DOCKER_TLS_VERIFY: str | None
 DOCKER_CERT_PATH: str | None
+
+
+def _browse_roots(s: Settings) -> list[str]:
+    if s.browse_roots is None:
+        raw = ["/tmp", s.root]
+    else:
+        raw = [p.strip() for p in s.browse_roots.split(",") if p.strip()]
+    return [os.path.abspath(os.path.expanduser(p)) for p in raw]
 
 
 def load(config_path: str | None = None) -> Settings:
@@ -107,6 +120,7 @@ def load(config_path: str | None = None) -> Settings:
         CLAUDE_RC_CMD=settings.claude_rc_cmd,
         RELAY_REGEX=settings.relay_regex,
         ENVIRONMENT_BRIEFING=settings.environment_briefing,
+        BROWSE_ROOTS=_browse_roots(settings),
         HOST=settings.host,
         PORT=settings.port,
         DOCKER_HOST=settings.docker_host,

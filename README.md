@@ -28,6 +28,14 @@ or in the Claude app.
   button that relaunches remote-control in the existing working tree (no
   re-clone; git auth and trust are already in place). Handy after fixing
   whatever made it exit.
+- **Files** — a read-only file browser (sidebar → *Files*) over `/tmp` and
+  the instance clones (`FLEET_BROWSE_ROOTS`), for grabbing whatever an instance
+  left behind: open a file in the browser, download it, or download a whole
+  folder as a `.zip`. Sort by name or newest first. Paths that resolve outside
+  those folders (`..`, symlinks elsewhere) and the secrets dir/DB are refused.
+  Viewed files are served under a `Content-Security-Policy: sandbox`, so an
+  HTML artifact renders with its relative CSS/JS/images and its scripts run,
+  but in an isolated origin that can't act on the dashboard.
 - **Sandboxed Docker access (optional)** — set `DOCKER_HOST` (see
   [Configuration](#configuration)) and every spawned session's `docker` CLI is
   transparently pointed at it; unset (the default), spawned sessions have no
@@ -216,6 +224,7 @@ same whether set in the environment or the file:
 | `DOCKER_HOST`      | _(unset)_                        | If set, spawned sessions' `docker` CLI points here instead of having no Docker access — see [docs/deployment-k3s.md](docs/deployment-k3s.md) |
 | `DOCKER_TLS_VERIFY`| _(unset)_                        | Passed through to spawned sessions alongside `DOCKER_HOST`     |
 | `DOCKER_CERT_PATH` | _(unset)_                        | Passed through to spawned sessions alongside `DOCKER_HOST`     |
+| `FLEET_BROWSE_ROOTS` | `/tmp`, `FLEET_ROOT`          | Comma-separated folders the *Files* browser can read; set to empty to disable |
 | `FLEET_ENVIRONMENT_BRIEFING` | _(unset)_               | Markdown briefed into every spawned instance — see **Environment briefing** below |
 
 ## Environment briefing

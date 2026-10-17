@@ -6,11 +6,12 @@ import io
 import os
 import uuid
 from contextlib import asynccontextmanager
+from urllib.parse import quote
 
 import qrcode
 import qrcode.image.svg
 from fastapi import FastAPI, Form, HTTPException, Request
-from fastapi.responses import HTMLResponse, Response
+from fastapi.responses import FileResponse, HTMLResponse, Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
@@ -18,6 +19,7 @@ import auth_claude
 import config
 import crypto
 import db
+import files
 import health
 import manager
 
@@ -32,6 +34,8 @@ async def lifespan(_: FastAPI):
 
 app = FastAPI(title="Claude Fleet", lifespan=lifespan)
 templates = Jinja2Templates(directory=os.path.join(BASE_DIR, "templates"))
+templates.env.filters["human_size"] = files.human_size
+templates.env.globals["browse_url"] = files.browse_url
 app.mount("/static", StaticFiles(directory=os.path.join(BASE_DIR, "static")), name="static")
 
 
@@ -246,6 +250,90 @@ def set_credential_token(request: Request, cid: str, token: str = Form(...)):
 def delete_credential(cid: str):
     db.delete_credential(cid)
     return _refresh()
+
+
+# --------------------------------------------------------------------------- #
+# File browser (read-only; see files.py for which paths are reachable)
+# --------------------------------------------------------------------------- #
+# Viewed files are untrusted (whatever an instance wrote), so they render in a
+# CSP sandbox: scripts can run (HTML artifacts keep working) but in an opaque
+# origin, so they can't use the dashboard's session to call its endpoints.
+_VIEW_HEADERS = {
+    "Content-Security-Policy": "sandbox allow-scripts allow-forms allow-popups allow-modals allow-downloads",
+    "X-Content-Type-Options": "nosniff",
+}
+
+
+def _resolve_or_404(path: str) -> str:
+    try:
+        return files.resolve(path)
+    except files.FileAccessError as exc:
+        raise HTTPException(status_code=403, detail=str(exc))
+    except OSError:
+        raise HTTPException(status_code=404, detail="No such file or folder.")
+
+
+@app.get("/files", response_class=HTMLResponse)
+def files_roots(request: Request):
+    roots = [{"path": r, "url": files.url("browse", r)} for r in files.roots()]
+    return _render(request, "files.html", roots=roots, real=None)
+
+
+@app.get("/files/browse/{path:path}", response_class=HTMLResponse)
+def files_browse(request: Request, path: str, sort: str = "name"):
+    real = _resolve_or_404(path)
+    if not os.path.isdir(real):
+        raise HTTPException(status_code=404, detail="Not a folder.")
+    try:
+        entries = files.listing(real, sort)
+        error = None
+    except OSError as exc:
+        entries, error = [], f"Could not list this folder: {exc.strerror or exc}"
+    return _render(
+        request, "files.html", real=real, entries=entries, sort=sort, error=error,
+        crumbs=files.breadcrumbs(real), parent_url=files.parent_url(real),
+        zip_url=files.url("zip", real),
+    )
+
+
+@app.get("/files/view/{path:path}")
+def files_view(path: str):
+    real = _resolve_or_404(path)
+    if not os.path.isfile(real):
+        raise HTTPException(status_code=404, detail="Not a file.")
+    return FileResponse(
+        real, media_type=files.view_type(real), headers=_VIEW_HEADERS,
+        filename=os.path.basename(real), content_disposition_type="inline",
+    )
+
+
+@app.get("/files/download/{path:path}")
+def files_download(path: str):
+    real = _resolve_or_404(path)
+    if not os.path.isfile(real):
+        raise HTTPException(status_code=404, detail="Not a file.")
+    return FileResponse(real, filename=os.path.basename(real))
+
+
+@app.get("/files/zip/{path:path}")
+def files_zip(path: str):
+    real = _resolve_or_404(path)
+    if not os.path.isdir(real):
+        raise HTTPException(status_code=404, detail="Not a folder.")
+    spool = files.zip_dir(real)
+
+    def chunks():
+        try:
+            while block := spool.read(1024 * 1024):
+                yield block
+        finally:
+            spool.close()
+
+    name = (os.path.basename(real) or "files") + ".zip"
+    return StreamingResponse(
+        chunks(), media_type="application/zip",
+        headers={"Content-Disposition": f"attachment; filename*=UTF-8''{quote(name)}"},
+    )
 
 
 # --------------------------------------------------------------------------- #

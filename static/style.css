@@ -324,3 +324,39 @@ pre.log {
 .cred-advanced[open] summary { margin-bottom: .5rem; }
 .cred-advanced p.muted { font-size: .78rem; margin: 0 0 .6rem; }
 .cred-advanced code { background: var(--bg); padding: .05rem .3rem; border-radius: 4px; }
+
+/* File browser */
+.crumbs { margin-top: .35rem; font-size: .85rem; color: var(--muted); word-break: break-all; }
+.crumbs a { color: var(--accent); text-decoration: none; }
+.crumbs a:hover { text-decoration: underline; }
+.crumbs .sep { margin: 0 .3rem; }
+.crumbs .here { color: var(--text); }
+.file-toolbar { display: flex; align-items: center; gap: .6rem; flex-wrap: wrap; margin-bottom: .75rem; font-size: .85rem; }
+.file-toolbar a { color: var(--accent); text-decoration: none; }
+.file-toolbar a:hover { text-decoration: underline; }
+.file-toolbar .file-zip { margin-left: auto; }
+.file-list { display: flex; flex-direction: column; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+.file-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 6rem 9.5rem 2.5rem;
+  gap: .75rem;
+  align-items: center;
+  padding: .45rem .8rem;
+  background: var(--panel);
+  border-top: 1px solid var(--border);
+  font-size: .88rem;
+  color: var(--text);
+  text-decoration: none;
+}
+.file-row:first-child { border-top: 0; }
+.file-row:hover { background: #1f232c; }
+.file-name { color: var(--text); text-decoration: none; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+a.file-name:hover { color: var(--accent); }
+.file-size, .file-time { color: var(--muted); font-size: .8rem; text-align: right; white-space: nowrap; }
+.file-action { color: var(--accent); text-decoration: none; text-align: right; font-size: .82rem; }
+.file-action:hover { text-decoration: underline; }
+@media (max-width: 720px) {
+  body { padding: 1rem; }
+  .file-row { grid-template-columns: minmax(0, 1fr) 4.5rem 2.5rem; }
+  .file-time { display: none; }
+}

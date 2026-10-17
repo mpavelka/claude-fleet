@@ -19,7 +19,7 @@
   <section class="detail-meta">
     <dl>
       {% if i.repo_url %}<dt>Repo</dt><dd>{{ i.repo_url }}</dd>{% endif %}
-      <dt>Working tree</dt><dd class="mono">{{ i.workdir }}</dd>
+      <dt>Working tree</dt><dd class="mono">{% set files_url = browse_url(i.workdir) %}{% if files_url %}<a href="{{ files_url }}">{{ i.workdir }}</a>{% else %}{{ i.workdir }}{% endif %}</dd>
       {% if i.tmux_session %}<dt>tmux session</dt><dd class="mono">{{ i.tmux_session }}</dd>{% endif %}
       {% if i.credential_name %}<dt>Credential</dt><dd>🔑 {{ i.credential_name }}</dd>{% endif %}
       {% if i.created_at %}<dt>Created</dt><dd>{{ i.created_at }}</dd>{% endif %}

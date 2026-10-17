@@ -57,7 +57,7 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY app.py config.py crypto.py db.py manager.py health.py auth_claude.py ./
+COPY app.py config.py crypto.py db.py files.py manager.py health.py auth_claude.py ./
 COPY templates/ templates/
 COPY static/ static/
 
