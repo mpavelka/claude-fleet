@@ -23,13 +23,13 @@
     <div class="cred-tag">🔑 {{ i.credential_name }}</div>
     {% endif %}
 
+    {# The session is listed by name at claude.ai/code and in the Claude app, so
+       the card only needs to say whether remote-control has registered (i.e.
+       the relay URL has been scraped); the full URL lives on the detail page. #}
     {% if i.running and i.relay_url %}
-    <div class="relay">
-      <a href="{{ i.relay_url }}" target="_blank" rel="noopener">{{ i.relay_url }}</a>
-      <img class="qr" src="/instances/{{ i.id }}/qr.svg?ts={{ i.created_at }}" alt="QR code" width="120" height="120">
-    </div>
+    <a class="relay connected" href="{{ i.relay_url }}" target="_blank" rel="noopener" title="{{ i.relay_url }}">Connected &#8599;</a>
     {% elif i.running %}
-    <div class="relay pending">Waiting for relay URL&hellip;</div>
+    <div class="relay pending">Connecting&hellip;</div>
     {% endif %}
 
     <div class="actions">

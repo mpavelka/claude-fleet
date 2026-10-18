@@ -2,15 +2,17 @@
 
 A small dashboard to clone git repos and run many `claude remote-control`
 instances on a server. One repo → many isolated instances, each in its own
-cloned working tree and its own detached tmux session, with the remote-control
-link and QR code surfaced in the UI.
+cloned working tree and its own detached tmux session. Each session is named
+after its instance, so you pick it up from the session list at claude.ai/code
+or in the Claude app.
 
 ## What it does
 
 - **Clone & spawn** — each instance gets a fresh `git clone` under `FLEET_ROOT`
   and a detached tmux session running `claude remote-control`.
 - **Manage** — live green/amber/red status, kill a running instance, and see
-  its relay link + QR code.
+  whether its remote-control session has connected (the card shows
+  *Connected*, linking to the session, once the relay URL appears in its log).
 - **Orphans** — killing an instance keeps its working tree so you can inspect
   Claude's changes. The dashboard lists these orphans (including untracked
   directories left over from crashes) and offers a one-click cleanup.
@@ -26,6 +28,14 @@ link and QR code surfaced in the UI.
   button that relaunches remote-control in the existing working tree (no
   re-clone; git auth and trust are already in place). Handy after fixing
   whatever made it exit.
+- **Files** — a read-only file browser (sidebar → *Files*) over `/tmp` and
+  the instance clones (`FLEET_BROWSE_ROOTS`), for grabbing whatever an instance
+  left behind: open a file in the browser, download it, or download a whole
+  folder as a `.zip`. Sort by name or newest first. Paths that resolve outside
+  those folders (`..`, symlinks elsewhere) and the secrets dir/DB are refused.
+  Viewed files are served under a `Content-Security-Policy: sandbox`, so an
+  HTML artifact renders with its relative CSS/JS/images and its scripts run,
+  but in an isolated origin that can't act on the dashboard.
 - **Sandboxed Docker access (optional)** — set `DOCKER_HOST` (see
   [Configuration](#configuration)) and every spawned session's `docker` CLI is
   transparently pointed at it; unset (the default), spawned sessions have no
@@ -214,6 +224,7 @@ same whether set in the environment or the file:
 | `DOCKER_HOST`      | _(unset)_                        | If set, spawned sessions' `docker` CLI points here instead of having no Docker access — see [docs/deployment-k3s.md](docs/deployment-k3s.md) |
 | `DOCKER_TLS_VERIFY`| _(unset)_                        | Passed through to spawned sessions alongside `DOCKER_HOST`     |
 | `DOCKER_CERT_PATH` | _(unset)_                        | Passed through to spawned sessions alongside `DOCKER_HOST`     |
+| `FLEET_BROWSE_ROOTS` | `/tmp`, `FLEET_ROOT`          | Comma-separated folders the *Files* browser can read; set to empty to disable |
 | `FLEET_ENVIRONMENT_BRIEFING` | _(unset)_               | Markdown briefed into every spawned instance — see **Environment briefing** below |
 
 ## Environment briefing
@@ -265,7 +276,9 @@ Verified against `claude` v2.1.92. On spawn, the app handles everything
    prompt, so it's a no-op otherwise).
 4. **Relay URL** — remote-control prints `https://claude.ai/code/session_<id>`
    inside a terminal hyperlink escape; the scraper reads `<workdir>/.relay.log`,
-   applies `RELAY_REGEX`, and trims trailing control bytes.
+   applies `RELAY_REGEX`, and trims trailing control bytes. Finding it is what
+   flips the card from *Connecting…* to *Connected*; the full URL is shown on
+   the instance's detail page.
 
 Requires a signed-in subscription account (see **Claude account** above). To
 debug a session by hand:

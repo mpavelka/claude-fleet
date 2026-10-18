@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Files — Claude Fleet</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <header>
+    <div class="title">
+      <a class="back" href="/">&larr; Fleet</a>
+      <h1>Files</h1>
+      {% if real %}
+      <nav class="crumbs">
+        {% if crumbs[0].name != "/" %}<a href="/files">roots</a><span class="sep">/</span>{% endif %}
+        {% for c in crumbs %}
+          {% if not loop.last %}<a href="{{ c.url }}">{{ c.name }}</a><span class="sep">/</span>{% else %}<span class="here">{{ c.name }}</span>{% endif %}
+        {% endfor %}
+      </nav>
+      {% endif %}
+    </div>
+  </header>
+
+  {% if not real %}
+  <section class="page-section">
+    {% if roots %}
+    <div class="file-list">
+      {% for r in roots %}
+      <a class="file-row" href="{{ r.url }}"><span class="file-name">📁 {{ r.path }}</span></a>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="empty">No browsable folders. Set <code>FLEET_BROWSE_ROOTS</code> to a comma-separated list of directories.</div>
+    {% endif %}
+  </section>
+  {% else %}
+
+  {% if error %}<div class="error">{{ error }}</div>{% endif %}
+
+  <div class="file-toolbar">
+    {% if parent_url %}<a href="{{ parent_url }}">&uarr; Up</a>{% endif %}
+    <span class="muted">Sort:</span>
+    {% if sort == "mtime" %}<a href="?sort=name">name</a> <strong>newest</strong>{% else %}<strong>name</strong> <a href="?sort=mtime">newest</a>{% endif %}
+    <a class="file-zip" href="{{ zip_url }}">Download folder as .zip</a>
+  </div>
+
+  {% if entries %}
+  <div class="file-list">
+    {% for e in entries %}
+    <div class="file-row">
+      {% if e.outside %}
+      <span class="file-name muted" title="Symlink to a location outside the browsable folders">🔗 {{ e.name }} &rarr; outside</span>
+      <span class="file-size"></span><span class="file-time"></span><span></span>
+      {% else %}
+      {% if e.is_dir %}
+      <a class="file-name" href="{{ e.browse_url }}">📁 {{ e.name }}{% if e.is_link %} <span class="muted">&rarr;</span>{% endif %}</a>
+      {% else %}
+      <a class="file-name" href="{{ e.view_url }}" target="_blank" rel="noopener" title="Open in a new tab">📄 {{ e.name }}{% if e.is_link %} <span class="muted">&rarr;</span>{% endif %}</a>
+      {% endif %}
+      <span class="file-size">{{ e.size | human_size }}</span>
+      <span class="file-time">{{ e.modified }}</span>
+      {% if e.is_dir %}
+      <a class="file-action" href="{{ e.zip_url }}" title="Download as .zip">.zip</a>
+      {% else %}
+      <a class="file-action" href="{{ e.download_url }}" title="Download">&darr;</a>
+      {% endif %}
+      {% endif %}
+    </div>
+    {% endfor %}
+  </div>
+  {% elif not error %}
+  <div class="empty">This folder is empty.</div>
+  {% endif %}
+
+  {% endif %}
+</body>
+</html>
