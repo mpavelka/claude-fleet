@@ -6,6 +6,18 @@ section below is generated automatically (from merged PRs) when a
 
 ## [Unreleased]
 
+## v0.0.9 - 2026-10-18
+
+<!-- Release notes generated using configuration in .github/release.yml at v0.0.9 -->
+
+## What's Changed
+### Other Changes
+* Compact Connected status on cards + read-only file browser by @mpavelka in https://github.com/mpavelka/claude-fleet/pull/19
+
+
+**Full Changelog**: https://github.com/mpavelka/claude-fleet/compare/v0.0.8...v0.0.9
+
+
 ## v0.0.8 - 2026-09-24
 
 <!-- Release notes generated using configuration in .github/release.yml at v0.0.8 -->
