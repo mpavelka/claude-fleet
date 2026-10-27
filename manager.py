@@ -51,7 +51,8 @@ def _clean_url(m: str) -> str:
 
 def _scan_relay(workdir: str) -> str | None:
     """Look for the relay URL in the captured session log. Prefer a Claude
-    URL if several links were printed."""
+    session link (a pre-created session) over the environment link (all that
+    worktree mode prints), then any Claude URL, then whatever matched."""
     logfile = os.path.join(workdir, ".relay.log")
     if not os.path.isfile(logfile):
         return None
@@ -64,9 +65,10 @@ def _scan_relay(workdir: str) -> str | None:
     matches = [m for m in matches if m]
     if not matches:
         return None
-    for m in matches:
-        if "claude" in m:
-            return m
+    for marker in ("/session_", "claude"):
+        for m in matches:
+            if marker in m:
+                return m
     return matches[0]
 
 
@@ -464,15 +466,46 @@ def _docker_env_flags() -> list[str]:
 
 def _remote_control_cmd(label: str) -> str:
     """The shell command tmux runs. For a bare remote-control invocation, add
-    --name (to identify the session in claude.ai/code) and --spawn same-dir (to
-    skip the interactive spawn-mode prompt; each instance is its own clone)."""
+    --name (to identify the session in claude.ai/code) and --spawn (which also
+    skips the interactive spawn-mode prompt). In worktree mode, also skip the
+    pre-created session: it would run in the clone itself, the one directory
+    every session could otherwise end up sharing."""
     cmd = config.CLAUDE_RC_CMD
     if "remote-control" in cmd:
         if "--name" not in cmd:
             cmd = f"{cmd} --name {shlex.quote(label)}"
         if "--spawn" not in cmd:
-            cmd = f"{cmd} --spawn same-dir"
+            mode = config.CLAUDE_RC_SPAWN_MODE
+            cmd = f"{cmd} --spawn {mode}"
+            if mode == "worktree" and "create-session-in-dir" not in cmd:
+                cmd = f"{cmd} --no-create-session-in-dir"
     return cmd
+
+
+WORKTREES_EXCLUDE = "/.claude/worktrees/"
+
+
+def _exclude_worktrees(workdir: str) -> None:
+    """Worktree-mode sessions live under <clone>/.claude/worktrees/, which would
+    otherwise show up as untracked in the clone (and tempt an agent there to
+    commit them). Hide them via the clone-local .git/info/exclude -- never the
+    repo's own .gitignore. Idempotent; best-effort."""
+    path = os.path.join(workdir, ".git", "info", "exclude")
+    try:
+        try:
+            with open(path, "r") as fh:
+                text = fh.read()
+        except FileNotFoundError:
+            text = ""
+        if WORKTREES_EXCLUDE in (ln.strip() for ln in text.splitlines()):
+            return
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, "a") as fh:
+            if text and not text.endswith("\n"):
+                fh.write("\n")
+            fh.write(f"{WORKTREES_EXCLUDE}\n")
+    except OSError:
+        pass
 
 
 # --------------------------------------------------------------------------- #
@@ -541,6 +574,7 @@ def spawn(repo_url: str, name: str | None, credential_id: str | None = None) -> 
 
     # Pre-accept the workspace-trust dialog so remote-control doesn't exit.
     _trust_workdir(workdir)
+    _exclude_worktrees(workdir)
     _write_environment_briefing()
 
     label = (name or "").strip() or _repo_basename(repo_url)
@@ -598,6 +632,7 @@ def rerun(iid: str) -> None:
         return  # already running
 
     _trust_workdir(workdir)  # idempotent; also covers a trust entry lost since
+    _exclude_worktrees(workdir)  # clones from before worktree mode lack it
     _write_environment_briefing()
 
     gh_config_dir = _gh_config_dir_if_exists(iid)

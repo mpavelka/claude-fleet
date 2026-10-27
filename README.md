@@ -220,7 +220,8 @@ same whether set in the environment or the file:
 | `FLEET_PORT`       | `8700`                           | Bind port                                      |
 | `FLEET_AUTH_TOKEN` | _(unset)_                        | If set, required in `X-Auth-Token` header      |
 | `CLAUDE_RC_CMD`    | `claude remote-control`          | Command launched inside each working tree      |
-| `RELAY_REGEX`      | `https://claude\.ai/code/session_\S+` | Pattern used to extract the relay URL from logs |
+| `CLAUDE_RC_SPAWN_MODE` | `worktree`                   | `worktree` (each session gets its own git worktree), `same-dir` (all sessions share the clone) or `session` (single session); an explicit `--spawn` in `CLAUDE_RC_CMD` wins |
+| `RELAY_REGEX`      | `https://claude\.ai/code(?:/session_\|\?environment=)\S+` | Pattern used to extract the relay URL from logs |
 | `DOCKER_HOST`      | _(unset)_                        | If set, spawned sessions' `docker` CLI points here instead of having no Docker access — see [docs/deployment-k3s.md](docs/deployment-k3s.md) |
 | `DOCKER_TLS_VERIFY`| _(unset)_                        | Passed through to spawned sessions alongside `DOCKER_HOST`     |
 | `DOCKER_CERT_PATH` | _(unset)_                        | Passed through to spawned sessions alongside `DOCKER_HOST`     |
@@ -268,15 +269,27 @@ Verified against `claude` v2.1.92. On spawn, the app handles everything
    project config (`~/.claude.json`, or `$CLAUDE_CONFIG_DIR/.claude.json`),
    preserving the rest of the file and its `0600` perms.
 2. **Spawn mode** — the command is launched as
-   `claude remote-control --name <label> --spawn same-dir`, which labels the
-   session in claude.ai/code and skips the interactive spawn-mode `[1/2]`
-   prompt (each instance is already its own clone).
+   `claude remote-control --name <label> --spawn worktree --no-create-session-in-dir`
+   (mode from `CLAUDE_RC_SPAWN_MODE`), which labels the instance in
+   claude.ai/code and skips the interactive spawn-mode `[1/2]` prompt. In
+   worktree mode every session you start on the instance (from the mobile app
+   or claude.ai/code) gets its own git worktree under
+   `<clone>/.claude/worktrees/<name>` on a `worktree-<name>` branch, so
+   concurrent sessions never share a working tree; no session is pre-created
+   in the clone itself. Worktrees share the clone's git config, so the
+   instance's credential and commit identity apply in them too, and
+   `.claude/worktrees/` is added to the clone's `.git/info/exclude` so it never
+   shows up as untracked. `same-dir` restores the old behaviour (every session
+   in the clone).
 3. **Enable prompt** — if the *"Enable Remote Control? (y/n)"* prompt appears, a
    background watcher answers `y` once (it only fires when it sees that exact
    prompt, so it's a no-op otherwise).
 4. **Relay URL** — remote-control prints `https://claude.ai/code/session_<id>`
-   inside a terminal hyperlink escape; the scraper reads `<workdir>/.relay.log`,
-   applies `RELAY_REGEX`, and trims trailing control bytes. Finding it is what
+   for a pre-created session, or only the environment link
+   `https://claude.ai/code?environment=env_<id>` in worktree mode (the session
+   link is preferred when both appear), inside a terminal hyperlink escape;
+   the scraper reads `<workdir>/.relay.log`, applies `RELAY_REGEX`, and trims
+   trailing control bytes. Finding it is what
    flips the card from *Connecting…* to *Connected*; the full URL is shown on
    the instance's detail page.
 

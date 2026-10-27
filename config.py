@@ -11,6 +11,7 @@ active `Settings` instance by `load()`, so anything that reads them at call time
 picks up the loaded config. Do NOT read them at import time in other modules.
 """
 import os
+from typing import Literal
 
 from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -43,8 +44,19 @@ class Settings(BaseSettings):
     claude_rc_cmd: str = Field(
         default="claude remote-control", validation_alias="CLAUDE_RC_CMD"
     )
+    # How remote-control places the sessions it spawns: "worktree" gives each
+    # on-demand session its own git worktree of the clone so concurrent
+    # sessions can't trample each other; "same-dir" runs them all in the clone;
+    # "session" is the classic single-session mode. An explicit --spawn in
+    # CLAUDE_RC_CMD wins over this.
+    rc_spawn_mode: Literal["worktree", "same-dir", "session"] = Field(
+        default="worktree", validation_alias="CLAUDE_RC_SPAWN_MODE"
+    )
+    # Matches a pre-created session's link and, in worktree mode (no
+    # pre-created session), the environment link sessions are started from.
     relay_regex: str = Field(
-        default=r"https://claude\.ai/code/session_\S+", validation_alias="RELAY_REGEX"
+        default=r"https://claude\.ai/code(?:/session_|\?environment=)\S+",
+        validation_alias="RELAY_REGEX",
     )
 
     # Markdown briefed into every spawned instance's global Claude memory file
@@ -85,6 +97,7 @@ SECRETS_ROOT: str
 SECRET_KEY: str | None
 AUTH_TOKEN: str | None
 CLAUDE_RC_CMD: str
+CLAUDE_RC_SPAWN_MODE: str
 RELAY_REGEX: str
 ENVIRONMENT_BRIEFING: str | None
 BROWSE_ROOTS: list[str]
@@ -118,6 +131,7 @@ def load(config_path: str | None = None) -> Settings:
         SECRET_KEY=settings.secret_key,
         AUTH_TOKEN=settings.auth_token,
         CLAUDE_RC_CMD=settings.claude_rc_cmd,
+        CLAUDE_RC_SPAWN_MODE=settings.rc_spawn_mode,
         RELAY_REGEX=settings.relay_regex,
         ENVIRONMENT_BRIEFING=settings.environment_briefing,
         BROWSE_ROOTS=_browse_roots(settings),
