@@ -11,7 +11,7 @@ section below is generated automatically (from merged PRs) when a
 <!-- Release notes generated using configuration in .github/release.yml at v0.0.11 -->
 
 ## What's Changed
-### Other Changes
+### Features
 * Show PRs on session cards; load instance-wide PRs on demand by @pavelkaassistant in https://github.com/mpavelka/claude-fleet/pull/25
 
 
