@@ -1,0 +1,3 @@
+{% if p.state %}<span class="pr-state pr-{{ p.state|lower }}">{{ p.state|lower }}</span>{% endif %}
+<a href="{{ p.url }}" target="_blank" rel="noopener">{{ p.repo or "" }}#{{ p.number }}</a>
+{% if p.title %}<span>{{ p.title }}</span>{% endif %}

@@ -81,8 +81,9 @@
   {% if i.tracked %}
   <section class="detail-prs">
     <h2>Pull requests</h2>
-    <div id="prs" hx-get="/instances/{{ i.id }}/prs" hx-trigger="load, every 60s" hx-swap="innerHTML">
-      <p class="muted">Loading&hellip;</p>
+    <p class="muted">Every PR any session of this instance has opened, including sessions whose worktree is gone.</p>
+    <div id="prs">
+      <button class="secondary" hx-get="/instances/{{ i.id }}/prs?wrap=1" hx-target="#prs" hx-swap="outerHTML">Show all pull requests</button>
     </div>
   </section>
   {% endif %}

@@ -145,6 +145,10 @@ def _tracked_or_404(iid: str) -> dict:
 def instance_worktrees(request: Request, iid: str, notice: str = "", error: str = ""):
     item = _tracked_or_404(iid)
     wts = worktrees.list_worktrees(item["workdir"]) if item["workdir_exists"] else []
+    # Each worktree is one session, so its transcripts hold that session's PRs.
+    for w in wts:
+        w["prs"] = worktrees.worktree_prs(w["path"])
+    worktrees.pr_states(iid, [p for w in wts for p in w["prs"]])
     return _render(request, "_worktrees.html", i=item, worktrees=wts,
                    notice=notice, error=error)
 
@@ -161,11 +165,11 @@ def remove_worktree(request: Request, iid: str, path: str = Form(...), force: st
 
 
 @app.get("/instances/{iid}/prs", response_class=HTMLResponse)
-def instance_prs(request: Request, iid: str):
+def instance_prs(request: Request, iid: str, wrap: str = ""):
     item = _tracked_or_404(iid)
     prs = worktrees.instance_prs(item["workdir"])
     worktrees.pr_states(iid, prs)
-    return _render(request, "_prs.html", i=item, prs=prs)
+    return _render(request, "_prs.html", i=item, prs=prs, wrap=bool(wrap))
 
 
 @app.post("/instances/{iid}/kill", response_class=HTMLResponse)

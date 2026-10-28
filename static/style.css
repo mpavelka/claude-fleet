@@ -94,6 +94,7 @@ button {
 button.kill { background: var(--red); color: #fff; }
 button.cleanup { background: transparent; color: var(--amber); border: 1px solid var(--amber); }
 button.rerun { background: var(--green); color: #06210c; }
+button.secondary { background: transparent; color: var(--accent); border: 1px solid var(--accent); }
 #action-error { margin-top: .75rem; }
 
 .error {
@@ -391,6 +392,8 @@ a.file-name:hover { color: var(--accent); }
 .pr-list li { display: flex; align-items: baseline; gap: .6rem; flex-wrap: wrap; font-size: .88rem; }
 .pr-list a { color: var(--accent); text-decoration: none; }
 .pr-list a:hover { text-decoration: underline; }
+.wt-prs { gap: .2rem; margin-top: .2rem; }
+.wt-prs li { font-size: .8rem; }
 .pr-where { font-size: .74rem; overflow: hidden; text-overflow: ellipsis; max-width: 22rem; white-space: nowrap; }
 .pr-state {
   font-size: .68rem; text-transform: uppercase; letter-spacing: .04em;
