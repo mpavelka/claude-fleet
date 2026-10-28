@@ -19,6 +19,7 @@ from urllib.parse import quote, urlsplit, urlunsplit
 import config
 import crypto
 import db
+import worktrees
 
 
 class SpawnError(Exception):
@@ -464,21 +465,29 @@ def _docker_env_flags() -> list[str]:
     ]
 
 
-def _remote_control_cmd(label: str) -> str:
+def _remote_control_cmd(label: str, spawn_mode: str | None = None) -> str:
     """The shell command tmux runs. For a bare remote-control invocation, add
-    --name (to identify the session in claude.ai/code) and --spawn (which also
-    skips the interactive spawn-mode prompt). In worktree mode, also skip the
-    pre-created session: it would run in the clone itself, the one directory
-    every session could otherwise end up sharing."""
+    --name (to identify the instance in claude.ai/code), a session name prefix
+    (so sessions it spawns are named after the instance, not the pod hostname)
+    and --spawn (which also skips the interactive spawn-mode prompt).
+    `spawn_mode` is the instance's own mode; None follows CLAUDE_RC_SPAWN_MODE.
+    In worktree mode, also skip the pre-created session: it would run in the
+    clone itself, the one directory every session could otherwise end up
+    sharing."""
     cmd = config.CLAUDE_RC_CMD
     if "remote-control" in cmd:
         if "--name" not in cmd:
             cmd = f"{cmd} --name {shlex.quote(label)}"
+        if "--remote-control-session-name-prefix" not in cmd:
+            cmd = f"{cmd} --remote-control-session-name-prefix {shlex.quote(label)}"
         if "--spawn" not in cmd:
-            mode = config.CLAUDE_RC_SPAWN_MODE
+            mode = spawn_mode or config.CLAUDE_RC_SPAWN_MODE
             cmd = f"{cmd} --spawn {mode}"
             if mode == "worktree" and "create-session-in-dir" not in cmd:
                 cmd = f"{cmd} --no-create-session-in-dir"
+        if (config.CLAUDE_RC_CAPACITY and "--capacity" not in cmd
+                and "--spawn session" not in cmd):
+            cmd = f"{cmd} --capacity {config.CLAUDE_RC_CAPACITY}"
     return cmd
 
 
@@ -511,13 +520,18 @@ def _exclude_worktrees(workdir: str) -> None:
 # --------------------------------------------------------------------------- #
 # Lifecycle
 # --------------------------------------------------------------------------- #
-def spawn(repo_url: str, name: str | None, credential_id: str | None = None) -> str:
+def spawn(repo_url: str, name: str | None, credential_id: str | None = None,
+          spawn_mode: str | None = None) -> str:
     """Clone `repo_url` into a fresh working tree and launch Claude in a
     detached tmux session. If a credential is given, git in that tree is wired
-    to authenticate with it. Returns the new instance id."""
+    to authenticate with it. `spawn_mode` pins the instance's remote-control
+    spawn mode (None follows CLAUDE_RC_SPAWN_MODE). Returns the new instance id."""
     repo_url = repo_url.strip()
     if not repo_url:
         raise SpawnError("A repository URL is required.")
+    spawn_mode = spawn_mode or None
+    if spawn_mode is not None and spawn_mode not in config.SPAWN_MODES:
+        raise SpawnError(f"Unknown spawn mode '{spawn_mode}'.")
 
     cred = db.get_credential(credential_id) if credential_id else None
     if credential_id and cred is None:
@@ -582,7 +596,7 @@ def spawn(repo_url: str, name: str | None, credential_id: str | None = None) -> 
     launch = subprocess.run(
         ["tmux", "new-session", "-d", "-s", session, "-x", "220", "-y", "50",
          *_docker_env_flags(), *_gh_env_flags(gh_config_dir),
-         "-c", workdir, _remote_control_cmd(label)],
+         "-c", workdir, _remote_control_cmd(label, spawn_mode)],
         capture_output=True,
         text=True,
     )
@@ -603,7 +617,8 @@ def spawn(repo_url: str, name: str | None, credential_id: str | None = None) -> 
         target=_confirm_remote_control, args=(session, logfile), daemon=True
     ).start()
 
-    db.add_instance(iid, label, repo_url, workdir, session, credential_id=credential_id)
+    db.add_instance(iid, label, repo_url, workdir, session, credential_id=credential_id,
+                    spawn_mode=spawn_mode)
     return iid
 
 
@@ -633,13 +648,16 @@ def rerun(iid: str) -> None:
 
     _trust_workdir(workdir)  # idempotent; also covers a trust entry lost since
     _exclude_worktrees(workdir)  # clones from before worktree mode lack it
+    # Nothing can be live in the clone while its server is down, so this is
+    # the moment to drop worktrees left clean by sessions the last run served.
+    worktrees.sweep(workdir)
     _write_environment_briefing()
 
     gh_config_dir = _gh_config_dir_if_exists(iid)
     launch = subprocess.run(
         ["tmux", "new-session", "-d", "-s", session, "-x", "220", "-y", "50",
          *_docker_env_flags(), *_gh_env_flags(gh_config_dir),
-         "-c", workdir, _remote_control_cmd(row["name"])],
+         "-c", workdir, _remote_control_cmd(row["name"], row["spawn_mode"])],
         capture_output=True,
         text=True,
     )
@@ -694,6 +712,7 @@ def list_instances() -> list[dict]:
     result: list[dict] = []
     seen_dirs: set[str] = set()
     cred_names = {c["id"]: c["name"] for c in db.all_credentials()}
+    sessions = worktrees.live_sessions()
 
     for row in db.all_instances():
         item = dict(row)
@@ -710,6 +729,10 @@ def list_instances() -> list[dict]:
         item["workdir_exists"] = workdir_exists
         item["tracked"] = True
         item["credential_name"] = cred_names.get(item.get("credential_id"))
+        item["spawn_mode_effective"] = item.get("spawn_mode") or config.CLAUDE_RC_SPAWN_MODE
+        item["worktrees"] = (
+            worktrees.summary(item["workdir"], sessions) if workdir_exists else None
+        )
         item["status"] = (
             "running" if running else "orphan" if workdir_exists else "missing"
         )

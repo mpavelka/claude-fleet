@@ -63,15 +63,20 @@ def init() -> None:
         cred_cols = [r[1] for r in c.execute("PRAGMA table_info(credentials)")]
         if "provider" not in cred_cols:
             c.execute("ALTER TABLE credentials ADD COLUMN provider TEXT")
+        # Migration: per-instance remote-control spawn mode. NULL (every row
+        # from before this column) means "follow CLAUDE_RC_SPAWN_MODE".
+        if "spawn_mode" not in cols:
+            c.execute("ALTER TABLE instances ADD COLUMN spawn_mode TEXT")
 
 
-def add_instance(iid, name, repo_url, workdir, tmux_session, credential_id=None) -> None:
+def add_instance(iid, name, repo_url, workdir, tmux_session, credential_id=None,
+                 spawn_mode=None) -> None:
     with _connect() as c:
         c.execute(
             "INSERT INTO instances "
-            "(id, name, repo_url, workdir, tmux_session, credential_id, created_at) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?)",
-            (iid, name, repo_url, workdir, tmux_session, credential_id, _now()),
+            "(id, name, repo_url, workdir, tmux_session, credential_id, spawn_mode, created_at) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            (iid, name, repo_url, workdir, tmux_session, credential_id, spawn_mode, _now()),
         )
 
 
