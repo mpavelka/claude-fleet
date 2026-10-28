@@ -6,6 +6,19 @@ section below is generated automatically (from merged PRs) when a
 
 ## [Unreleased]
 
+## v0.0.10 - 2026-10-28
+
+<!-- Release notes generated using configuration in .github/release.yml at v0.0.10 -->
+
+## What's Changed
+### Features
+* Run remote-control in worktree mode so sessions don't share a working tree by @pavelkaassistant in https://github.com/mpavelka/claude-fleet/pull/23
+* Show session worktrees and PRs per instance; sweep clean leftovers by @pavelkaassistant in https://github.com/mpavelka/claude-fleet/pull/24
+
+
+**Full Changelog**: https://github.com/mpavelka/claude-fleet/compare/v0.0.9...v0.0.10
+
+
 ## v0.0.9 - 2026-10-18
 
 <!-- Release notes generated using configuration in .github/release.yml at v0.0.9 -->
