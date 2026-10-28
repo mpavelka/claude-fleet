@@ -1,0 +1,14 @@
+{% if not prs %}
+<p class="muted">No pull requests opened from this instance's sessions yet.</p>
+{% else %}
+<ul class="pr-list">
+  {% for p in prs %}
+  <li>
+    {% if p.state %}<span class="pr-state pr-{{ p.state|lower }}">{{ p.state|lower }}</span>{% endif %}
+    <a href="{{ p.url }}" target="_blank" rel="noopener">{{ p.repo or "" }}#{{ p.number }}</a>
+    {% if p.title %}<span>{{ p.title }}</span>{% endif %}
+    <span class="muted mono pr-where" title="{{ p.cwd }}">{{ "clone" if p.cwd == i.workdir else p.cwd }}</span>
+  </li>
+  {% endfor %}
+</ul>
+{% endif %}

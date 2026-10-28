@@ -22,6 +22,7 @@
       <dt>Working tree</dt><dd class="mono">{% set files_url = browse_url(i.workdir) %}{% if files_url %}<a href="{{ files_url }}">{{ i.workdir }}</a>{% else %}{{ i.workdir }}{% endif %}</dd>
       {% if i.tmux_session %}<dt>tmux session</dt><dd class="mono">{{ i.tmux_session }}</dd>{% endif %}
       {% if i.credential_name %}<dt>Credential</dt><dd>🔑 {{ i.credential_name }}</dd>{% endif %}
+      {% if i.tracked %}<dt>Spawn mode</dt><dd>{{ i.spawn_mode_effective }}{% if not i.spawn_mode %} <span class="muted">(default)</span>{% endif %}</dd>{% endif %}
       {% if i.created_at %}<dt>Created</dt><dd>{{ i.created_at }}</dd>{% endif %}
       {% if i.relay_url %}<dt>Relay</dt><dd><a href="{{ i.relay_url }}" target="_blank" rel="noopener">{{ i.relay_url }}</a></dd>{% endif %}
     </dl>
@@ -69,6 +70,22 @@
     </details>
     {% endif %}
   </section>
+
+  {% if i.tracked and i.workdir_exists %}
+  <section class="detail-worktrees">
+    <h2>Sessions &amp; worktrees</h2>
+    <div id="worktrees" hx-get="/instances/{{ i.id }}/worktrees" hx-trigger="load, every 5s" hx-swap="innerHTML"></div>
+  </section>
+  {% endif %}
+
+  {% if i.tracked %}
+  <section class="detail-prs">
+    <h2>Pull requests</h2>
+    <div id="prs" hx-get="/instances/{{ i.id }}/prs" hx-trigger="load, every 60s" hx-swap="innerHTML">
+      <p class="muted">Loading&hellip;</p>
+    </div>
+  </section>
+  {% endif %}
 
   <section class="detail-log">
     <h2>Session log</h2>

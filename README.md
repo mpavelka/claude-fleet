@@ -36,6 +36,18 @@ or in the Claude app.
   Viewed files are served under a `Content-Security-Policy: sandbox`, so an
   HTML artifact renders with its relative CSS/JS/images and its scripts run,
   but in an isolated origin that can't act on the dashboard.
+- **Sessions & worktrees** — in worktree mode the detail page lists every
+  session worktree of the instance: whether a session is attached (busy/idle,
+  with a link to it in claude.ai/code), its branch, uncommitted files and
+  commits. Cards summarize active sessions and ones that ended with
+  uncommitted work. See [Session worktrees](#session-worktrees).
+- **Pull requests** — the detail page lists every PR the instance's sessions
+  opened or worked on (read from their transcripts, so it covers removed
+  worktrees and same-dir instances too), with open/merged/closed state for
+  instances with a GitHub credential.
+- **Spawn mode per instance** — the spawn form can pin an instance to
+  `worktree`, `same-dir` or `session` mode; left at default it follows
+  `CLAUDE_RC_SPAWN_MODE`.
 - **Sandboxed Docker access (optional)** — set `DOCKER_HOST` (see
   [Configuration](#configuration)) and every spawned session's `docker` CLI is
   transparently pointed at it; unset (the default), spawned sessions have no
@@ -220,7 +232,9 @@ same whether set in the environment or the file:
 | `FLEET_PORT`       | `8700`                           | Bind port                                      |
 | `FLEET_AUTH_TOKEN` | _(unset)_                        | If set, required in `X-Auth-Token` header      |
 | `CLAUDE_RC_CMD`    | `claude remote-control`          | Command launched inside each working tree      |
-| `CLAUDE_RC_SPAWN_MODE` | `worktree`                   | `worktree` (each session gets its own git worktree), `same-dir` (all sessions share the clone) or `session` (single session); an explicit `--spawn` in `CLAUDE_RC_CMD` wins |
+| `CLAUDE_RC_SPAWN_MODE` | `worktree`                   | Default spawn mode for instances spawned without one: `worktree` (each session gets its own git worktree), `same-dir` (all sessions share the clone) or `session` (single session); an explicit `--spawn` in `CLAUDE_RC_CMD` wins |
+| `CLAUDE_RC_CAPACITY` | _(unset → 32)_                 | Max concurrent sessions per instance (`--capacity`) |
+| `FLEET_WORKTREE_SWEEP_MINUTES` | `15`               | How often worktrees of ended sessions with a clean `git status` are removed; `0` disables the periodic sweep (re-run still sweeps) |
 | `RELAY_REGEX`      | `https://claude\.ai/code(?:/session_\|\?environment=)\S+` | Pattern used to extract the relay URL from logs |
 | `DOCKER_HOST`      | _(unset)_                        | If set, spawned sessions' `docker` CLI points here instead of having no Docker access — see [docs/deployment-k3s.md](docs/deployment-k3s.md) |
 | `DOCKER_TLS_VERIFY`| _(unset)_                        | Passed through to spawned sessions alongside `DOCKER_HOST`     |
@@ -269,8 +283,9 @@ Verified against `claude` v2.1.92. On spawn, the app handles everything
    project config (`~/.claude.json`, or `$CLAUDE_CONFIG_DIR/.claude.json`),
    preserving the rest of the file and its `0600` perms.
 2. **Spawn mode** — the command is launched as
-   `claude remote-control --name <label> --spawn worktree --no-create-session-in-dir`
-   (mode from `CLAUDE_RC_SPAWN_MODE`), which labels the instance in
+   `claude remote-control --name <label> --remote-control-session-name-prefix <label> --spawn worktree --no-create-session-in-dir`
+   (mode from the instance, else `CLAUDE_RC_SPAWN_MODE`), which labels the
+   instance and the sessions it spawns in
    claude.ai/code and skips the interactive spawn-mode `[1/2]` prompt. In
    worktree mode every session you start on the instance (from the mobile app
    or claude.ai/code) gets its own git worktree under
@@ -300,11 +315,42 @@ debug a session by hand:
 tmux attach -t claude-<instance-id>
 ```
 
+## Session worktrees
+
+In worktree mode remote-control names each session's worktree
+`bridge-cse_<id>` after the claude.ai session `session_<id>`, and locks it
+(`claude agent … (pid P start S)`) while the session is attached. Archiving a
+session releases the lock, and remote-control deletes the worktree itself if
+its `git status` is clean. A worktree is left behind when the session ended
+with uncommitted files, or was still open when the server stopped (Kill, pod
+restart).
+
+The fleet tells used from unused worktrees from what Claude Code leaves on
+disk: the `CLAUDE_BASE` marker Claude writes into every worktree it creates,
+the lock's pid *and* kernel start time (so a reused pid after a restart isn't
+mistaken for the owner), and the live session records in
+`$CLAUDE_CONFIG_DIR/sessions/`. Every `FLEET_WORKTREE_SWEEP_MINUTES`, and when
+an instance is re-run, it removes each worktree that
+
+- Claude created (has `CLAUDE_BASE`),
+- nothing live is attached to (no live lock owner, no live session in it),
+- has a clean `git status` (no modified or untracked files), and
+- is at least two minutes old.
+
+Its `worktree-*` branch is deleted only if it has no commits of its own;
+otherwise the branch is kept, so committed work survives whether or not it was
+merged (squash merges make "merged" unknowable from git alone). Worktrees with
+uncommitted work are kept and flagged; the detail page can remove them after a
+confirmation. Worktrees you created yourself and hand-set locks are never
+touched. Transcripts are kept, so ended sessions stay in the app and their PRs
+stay listed.
+
 ## How state is modeled
 
 The UI reconciles three sources on every refresh:
 
-- **SQLite** — the mapping of instance id → repo, working tree, tmux session, relay URL.
+- **SQLite** — the mapping of instance id → repo, working tree, tmux session,
+  relay URL, credential and spawn mode.
 - **tmux** — `tmux has-session` decides running vs stopped.
 - **Filesystem** — directories under `FLEET_ROOT` with no DB row show up as
   untracked orphans.

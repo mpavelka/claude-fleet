@@ -22,6 +22,7 @@ import db
 import files
 import health
 import manager
+import worktrees
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
@@ -29,6 +30,7 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     db.init()
+    worktrees.start_sweeper()
     yield
 
 
@@ -69,6 +71,7 @@ def index(request: Request):
         credentials=db.all_credentials(),
         health=health.check(),
         claude=auth_claude.login_state(),
+        default_spawn_mode=config.CLAUDE_RC_SPAWN_MODE,
     )
 
 
@@ -102,10 +105,11 @@ def create_instance(
     repo_url: str = Form(...),
     name: str = Form(""),
     credential_id: str = Form(""),
+    spawn_mode: str = Form(""),
 ):
     error = None
     try:
-        manager.spawn(repo_url, name, credential_id or None)
+        manager.spawn(repo_url, name, credential_id or None, spawn_mode or None)
     except manager.SpawnError as exc:
         error = str(exc)
     return _render(request, "_cards.html", instances=manager.list_instances(), error=error)
@@ -128,6 +132,40 @@ def instance_log(request: Request, iid: str):
     if item is None:
         raise HTTPException(status_code=404, detail="No such instance.")
     return _render(request, "_log.html", i=item, log=manager.instance_log(item))
+
+
+def _tracked_or_404(iid: str) -> dict:
+    item = manager.get_instance(iid)
+    if item is None or not item.get("tracked"):
+        raise HTTPException(status_code=404, detail="No such instance.")
+    return item
+
+
+@app.get("/instances/{iid}/worktrees", response_class=HTMLResponse)
+def instance_worktrees(request: Request, iid: str, notice: str = "", error: str = ""):
+    item = _tracked_or_404(iid)
+    wts = worktrees.list_worktrees(item["workdir"]) if item["workdir_exists"] else []
+    return _render(request, "_worktrees.html", i=item, worktrees=wts,
+                   notice=notice, error=error)
+
+
+@app.post("/instances/{iid}/worktrees/remove", response_class=HTMLResponse)
+def remove_worktree(request: Request, iid: str, path: str = Form(...), force: str = Form("")):
+    item = _tracked_or_404(iid)
+    notice = error = ""
+    try:
+        notice = worktrees.remove(item["workdir"], path, force=bool(force))
+    except worktrees.WorktreeError as exc:
+        error = str(exc)
+    return instance_worktrees(request, iid, notice=notice, error=error)
+
+
+@app.get("/instances/{iid}/prs", response_class=HTMLResponse)
+def instance_prs(request: Request, iid: str):
+    item = _tracked_or_404(iid)
+    prs = worktrees.instance_prs(item["workdir"])
+    worktrees.pr_states(iid, prs)
+    return _render(request, "_prs.html", i=item, prs=prs)
 
 
 @app.post("/instances/{iid}/kill", response_class=HTMLResponse)

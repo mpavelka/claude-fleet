@@ -52,6 +52,12 @@
             <option value="{{ c.id }}">{{ c.name }} ({{ "GitHub" if c.provider == "github" else "GitLab" if c.provider == "gitlab" else "git" }})</option>
             {% endfor %}
           </select>
+          <select name="spawn_mode" title="How remote-control places the sessions you start on this instance">
+            <option value="">sessions: default ({{ default_spawn_mode }})</option>
+            <option value="worktree">sessions: own worktree each</option>
+            <option value="same-dir">sessions: share the clone</option>
+            <option value="session">single session</option>
+          </select>
           <button type="submit">Clone &amp; spawn</button>
         </form>
       </section>

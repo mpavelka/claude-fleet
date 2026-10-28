@@ -360,3 +360,42 @@ a.file-name:hover { color: var(--accent); }
   .file-row { grid-template-columns: minmax(0, 1fr) 4.5rem 2.5rem; }
   .file-time { display: none; }
 }
+
+/* Sessions & worktrees (detail page) + card summary */
+.detail-worktrees, .detail-prs { margin-bottom: 1.5rem; }
+.detail-worktrees h2, .detail-prs h2 { font-size: 1.05rem; margin: 0 0 .5rem; }
+.notice {
+  background: rgba(63, 185, 80, .1);
+  border: 1px solid var(--green);
+  padding: .5rem .8rem;
+  border-radius: 8px;
+  margin-bottom: .75rem;
+  font-size: .85rem;
+}
+.wt-list, .pr-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: .5rem; }
+.wt {
+  display: flex; align-items: center; gap: .75rem;
+  background: var(--panel); border: 1px solid var(--border); border-radius: 8px;
+  padding: .55rem .8rem;
+}
+.wt form { margin: 0; }
+.wt-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: .15rem; }
+.wt-head { display: flex; align-items: center; gap: .6rem; flex-wrap: wrap; }
+.wt-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wt-facts, .wt-note { font-size: .78rem; }
+.wt-active .dot { background: var(--green); box-shadow: 0 0 6px var(--green); }
+.wt-work .dot { background: var(--amber); }
+.wt-clean .dot { background: var(--muted); opacity: .5; }
+.wt-summary { font-size: .78rem; color: var(--muted); }
+.wt-summary .wt-work { color: var(--amber); }
+.pr-list li { display: flex; align-items: baseline; gap: .6rem; flex-wrap: wrap; font-size: .88rem; }
+.pr-list a { color: var(--accent); text-decoration: none; }
+.pr-list a:hover { text-decoration: underline; }
+.pr-where { font-size: .74rem; overflow: hidden; text-overflow: ellipsis; max-width: 22rem; white-space: nowrap; }
+.pr-state {
+  font-size: .68rem; text-transform: uppercase; letter-spacing: .04em;
+  border-radius: 999px; padding: .05rem .45rem; border: 1px solid var(--border); color: var(--muted);
+}
+.pr-open { color: var(--green); border-color: var(--green); }
+.pr-merged { color: #a371f7; border-color: #a371f7; }
+.pr-closed { color: var(--red); border-color: var(--red); }

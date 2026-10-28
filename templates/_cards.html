@@ -22,6 +22,12 @@
     {% if i.credential_name %}
     <div class="cred-tag">🔑 {{ i.credential_name }}</div>
     {% endif %}
+    {% if i.worktrees and i.worktrees.total %}
+    <div class="wt-summary">
+      {{ i.worktrees.active }} active session{{ "" if i.worktrees.active == 1 else "s" }}
+      {%- if i.worktrees.with_work %} · <span class="wt-work">{{ i.worktrees.with_work }} ended with uncommitted work</span>{% endif %}
+    </div>
+    {% endif %}
 
     {# The session is listed by name at claude.ai/code and in the Claude app, so
        the card only needs to say whether remote-control has registered (i.e.

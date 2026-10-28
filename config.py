@@ -17,6 +17,7 @@ from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 DEFAULT_CONFIG_PATH = os.path.expanduser("~/.claude-fleet/.env")
+SPAWN_MODES = ("worktree", "same-dir", "session")
 
 
 class Settings(BaseSettings):
@@ -49,8 +50,16 @@ class Settings(BaseSettings):
     # sessions can't trample each other; "same-dir" runs them all in the clone;
     # "session" is the classic single-session mode. An explicit --spawn in
     # CLAUDE_RC_CMD wins over this.
-    rc_spawn_mode: Literal["worktree", "same-dir", "session"] = Field(
+    rc_spawn_mode: Literal[SPAWN_MODES] = Field(
         default="worktree", validation_alias="CLAUDE_RC_SPAWN_MODE"
+    )
+    # Max concurrent sessions per instance (remote-control's --capacity);
+    # unset leaves remote-control's own default (32).
+    rc_capacity: int | None = Field(default=None, ge=1, validation_alias="CLAUDE_RC_CAPACITY")
+    # Minutes between sweeps that remove worktrees of ended sessions with a
+    # clean git status (see worktrees.sweep). 0 disables the periodic sweep.
+    worktree_sweep_minutes: float = Field(
+        default=15, ge=0, validation_alias="FLEET_WORKTREE_SWEEP_MINUTES"
     )
     # Matches a pre-created session's link and, in worktree mode (no
     # pre-created session), the environment link sessions are started from.
@@ -98,6 +107,8 @@ SECRET_KEY: str | None
 AUTH_TOKEN: str | None
 CLAUDE_RC_CMD: str
 CLAUDE_RC_SPAWN_MODE: str
+CLAUDE_RC_CAPACITY: int | None
+WORKTREE_SWEEP_MINUTES: float
 RELAY_REGEX: str
 ENVIRONMENT_BRIEFING: str | None
 BROWSE_ROOTS: list[str]
@@ -132,6 +143,8 @@ def load(config_path: str | None = None) -> Settings:
         AUTH_TOKEN=settings.auth_token,
         CLAUDE_RC_CMD=settings.claude_rc_cmd,
         CLAUDE_RC_SPAWN_MODE=settings.rc_spawn_mode,
+        CLAUDE_RC_CAPACITY=settings.rc_capacity,
+        WORKTREE_SWEEP_MINUTES=settings.worktree_sweep_minutes,
         RELAY_REGEX=settings.relay_regex,
         ENVIRONMENT_BRIEFING=settings.environment_briefing,
         BROWSE_ROOTS=_browse_roots(settings),
