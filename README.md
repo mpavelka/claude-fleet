@@ -41,10 +41,11 @@ or in the Claude app.
   with a link to it in claude.ai/code), its branch, uncommitted files and
   commits. Cards summarize active sessions and ones that ended with
   uncommitted work. See [Session worktrees](#session-worktrees).
-- **Pull requests** — the detail page lists every PR the instance's sessions
-  opened or worked on (read from their transcripts, so it covers removed
-  worktrees and same-dir instances too), with open/merged/closed state for
-  instances with a GitHub credential.
+- **Pull requests** — each session in the worktree list shows the PRs it
+  opened or worked on (read from its transcripts). A **Show all pull
+  requests** button on the detail page lists every PR of the instance's
+  sessions, which also covers removed worktrees and same-dir instances. PRs
+  get open/merged/closed state on instances with a GitHub credential.
 - **Spawn mode per instance** — the spawn form can pin an instance to
   `worktree`, `same-dir` or `session` mode; left at default it follows
   `CLAUDE_RC_SPAWN_MODE`.

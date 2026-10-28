@@ -22,6 +22,11 @@
         {% if w.missing %}directory missing
         {% else %}{{ "?" if w.changed is none else w.changed }} changed file{{ "" if w.changed == 1 else "s" }}{% if w.ahead %} · {{ w.ahead }} commit{{ "" if w.ahead == 1 else "s" }}{% endif %}{% endif %}
       </div>
+      {% if w.prs %}
+      <ul class="pr-list wt-prs">
+        {% for p in w.prs %}<li>{% include "_pr.html" %}</li>{% endfor %}
+      </ul>
+      {% endif %}
       {% if not w.active %}
       <div class="wt-note muted">
         {% if not w.claude_made %}Not created by Claude &mdash; left alone.
