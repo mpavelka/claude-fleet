@@ -6,6 +6,18 @@ section below is generated automatically (from merged PRs) when a
 
 ## [Unreleased]
 
+## v0.0.11 - 2026-10-28
+
+<!-- Release notes generated using configuration in .github/release.yml at v0.0.11 -->
+
+## What's Changed
+### Other Changes
+* Show PRs on session cards; load instance-wide PRs on demand by @pavelkaassistant in https://github.com/mpavelka/claude-fleet/pull/25
+
+
+**Full Changelog**: https://github.com/mpavelka/claude-fleet/compare/v0.0.10...v0.0.11
+
+
 ## v0.0.10 - 2026-10-28
 
 <!-- Release notes generated using configuration in .github/release.yml at v0.0.10 -->
