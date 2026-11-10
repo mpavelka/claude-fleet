@@ -6,6 +6,18 @@ section below is generated automatically (from merged PRs) when a
 
 ## [Unreleased]
 
+## v0.0.12 - 2026-11-10
+
+<!-- Release notes generated using configuration in .github/release.yml at v0.0.12 -->
+
+## What's Changed
+### Other Changes
+* Add scheduled runs: per-instance cron schedules, one in-app scheduler by @pavelkaassistant in https://github.com/mpavelka/claude-fleet/pull/26
+
+
+**Full Changelog**: https://github.com/mpavelka/claude-fleet/compare/v0.0.11...v0.0.12
+
+
 ## v0.0.11 - 2026-10-28
 
 <!-- Release notes generated using configuration in .github/release.yml at v0.0.11 -->
