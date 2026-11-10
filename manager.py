@@ -692,8 +692,11 @@ def cleanup(workdir: str) -> None:
 
     row = db.get_by_workdir(absw)
     if row is not None:
+        import scheduler  # late: scheduler imports this module
+
         iid = row["id"]
         _kill_tmux(row["tmux_session"])
+        scheduler.forget_instance(iid)
         db.delete(row["id"])
     else:
         # Untracked directory: recover the id from the dirname (old-style

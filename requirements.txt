@@ -5,3 +5,5 @@ qrcode
 python-multipart
 cryptography
 pydantic-settings
+croniter
+tzdata

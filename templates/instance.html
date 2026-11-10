@@ -78,6 +78,41 @@
   </section>
   {% endif %}
 
+  {% if i.tracked and i.workdir_exists %}
+  <section class="detail-schedules">
+    <h2>Scheduled runs</h2>
+    <p class="muted">
+      Commands run on a cron schedule in this instance's clone
+      (<span class="mono">{{ i.workdir }}</span>), with its git credential and
+      <code>gh</code> config, independently of its remote-control session.
+      {% if i.spawn_mode_effective != "worktree" %}
+      <strong class="sched-bad">This instance runs in <code>{{ i.spawn_mode_effective }}</code> mode, so
+      scheduled runs share the clone with its sessions.</strong>
+      {% endif %}
+    </p>
+    {# The list is polled (not while a run's output is expanded, which a swap
+       would collapse); the form sits outside it so typing isn't clobbered. #}
+    <div id="schedules" hx-get="/instances/{{ i.id }}/schedules" hx-trigger="load, every 10s [!document.querySelector('#schedules details[open]')]" hx-swap="innerHTML"></div>
+    <details class="cred-identity sched-new">
+      <summary>Add a schedule</summary>
+      <form class="sched-form" hx-post="/instances/{{ i.id }}/schedules" hx-target="#schedules" hx-swap="innerHTML"
+            hx-on:schedule-added="this.reset()">
+        <label>Cron <input name="cron" placeholder="40 7 * * *" required class="mono"></label>
+        <label>Command <input name="command" placeholder="bin/scheduled-run job-scan" required class="mono"></label>
+        <label>Label <input name="label" placeholder="optional, defaults to the command"></label>
+        <button type="submit">Add</button>
+      </form>
+      <p class="muted">
+        Standard 5-field cron (minute hour day-of-month month day-of-week) or
+        <code>@hourly</code>/<code>@daily</code>/<code>@weekly</code>, in
+        {{ tz }}. The command is a shell line run from the clone's root. A run
+        is skipped while the previous one is still going; a run missed while
+        the dashboard was down fires once when it's back.
+      </p>
+    </details>
+  </section>
+  {% endif %}
+
   {% if i.tracked %}
   <section class="detail-prs">
     <h2>Pull requests</h2>

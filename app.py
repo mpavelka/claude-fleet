@@ -22,6 +22,7 @@ import db
 import files
 import health
 import manager
+import scheduler
 import worktrees
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -31,6 +32,7 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 async def lifespan(_: FastAPI):
     db.init()
     worktrees.start_sweeper()
+    scheduler.start()
     yield
 
 
@@ -38,6 +40,8 @@ app = FastAPI(title="Claude Fleet", lifespan=lifespan)
 templates = Jinja2Templates(directory=os.path.join(BASE_DIR, "templates"))
 templates.env.filters["human_size"] = files.human_size
 templates.env.globals["browse_url"] = files.browse_url
+templates.env.filters["localtime"] = scheduler.localtime
+templates.env.globals["schedule_summary"] = scheduler.summary
 app.mount("/static", StaticFiles(directory=os.path.join(BASE_DIR, "static")), name="static")
 
 
@@ -122,7 +126,7 @@ def instance_detail(request: Request, iid: str):
         raise HTTPException(status_code=404, detail="No such instance.")
     return _render(
         request, "instance.html", i=item, log=manager.instance_log(item),
-        credentials=db.all_credentials(),
+        credentials=db.all_credentials(), tz=scheduler.timezone_name(),
     )
 
 
@@ -162,6 +166,69 @@ def remove_worktree(request: Request, iid: str, path: str = Form(...), force: st
     except worktrees.WorktreeError as exc:
         error = str(exc)
     return instance_worktrees(request, iid, notice=notice, error=error)
+
+
+# --------------------------------------------------------------------------- #
+# Scheduled runs (see scheduler.py)
+# --------------------------------------------------------------------------- #
+@app.get("/instances/{iid}/schedules", response_class=HTMLResponse)
+def instance_schedules(request: Request, iid: str, notice: str = "", error: str = ""):
+    item = _tracked_or_404(iid)
+    return _render(request, "_schedules.html", i=item, schedules=scheduler.list_for(iid),
+                   tz=scheduler.timezone_name(), notice=notice, error=error)
+
+
+@app.post("/instances/{iid}/schedules", response_class=HTMLResponse)
+def create_schedule(
+    request: Request, iid: str,
+    cron: str = Form(""), command: str = Form(""), label: str = Form(""),
+):
+    _tracked_or_404(iid)
+    try:
+        scheduler.create(iid, cron, command, label)
+    except scheduler.ScheduleError as exc:
+        return instance_schedules(request, iid, error=str(exc))
+    resp = instance_schedules(request, iid, notice="Schedule added.")
+    resp.headers["HX-Trigger"] = "schedule-added"  # the form clears itself
+    return resp
+
+
+def _schedule_action(request: Request, iid: str, sid: str, action) -> HTMLResponse:
+    s = db.get_schedule(sid)
+    if s is None or s["instance_id"] != iid:
+        raise HTTPException(status_code=404, detail="No such schedule.")
+    try:
+        notice = action()
+    except scheduler.ScheduleError as exc:
+        return instance_schedules(request, iid, error=str(exc))
+    return instance_schedules(request, iid, notice=notice or "")
+
+
+@app.post("/instances/{iid}/schedules/{sid}/run", response_class=HTMLResponse)
+def run_schedule(request: Request, iid: str, sid: str):
+    return _schedule_action(request, iid, sid,
+                            lambda: scheduler.run_now(sid) or "Run started.")
+
+
+@app.post("/instances/{iid}/schedules/{sid}/enabled", response_class=HTMLResponse)
+def toggle_schedule(request: Request, iid: str, sid: str, enabled: str = Form("")):
+    on = enabled == "1"
+    return _schedule_action(request, iid, sid, lambda: scheduler.set_enabled(sid, on)
+                            or ("Schedule enabled." if on else "Schedule paused."))
+
+
+@app.post("/instances/{iid}/schedules/{sid}/delete", response_class=HTMLResponse)
+def delete_schedule(request: Request, iid: str, sid: str):
+    return _schedule_action(request, iid, sid,
+                            lambda: scheduler.delete(sid) or "Schedule deleted.")
+
+
+@app.get("/instances/{iid}/schedules/{sid}/log", response_class=HTMLResponse)
+def schedule_log(request: Request, iid: str, sid: str):
+    s = db.get_schedule(sid)
+    if s is None or s["instance_id"] != iid:
+        raise HTTPException(status_code=404, detail="No such schedule.")
+    return _render(request, "_log.html", log=scheduler.last_log(sid))
 
 
 @app.get("/instances/{iid}/prs", response_class=HTMLResponse)

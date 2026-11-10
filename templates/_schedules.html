@@ -1,0 +1,55 @@
+{# Scheduled runs of one instance (polled; see scheduler.py). #}
+{% if notice %}<div class="notice">{{ notice }}</div>{% endif %}
+{% if error %}<div class="error">{{ error }}</div>{% endif %}
+{% if schedules %}
+<ul class="wt-list">
+  {% for s in schedules %}
+  {% set kind = "active" if s.running else ("off" if not s.enabled else ("fail" if s.last_note or (s.last_exit is not none and s.last_exit != 0) else "clean")) %}
+  <li class="wt sched-{{ kind }}">
+    <span class="dot"></span>
+    <div class="wt-main">
+      <div class="wt-head">
+        <span class="wt-name">{{ s.label }}</span>
+        <span class="mono sched-cron">{{ s.cron }}</span>
+        {% if s.running %}<span class="badge">running</span>{% elif not s.enabled %}<span class="badge">paused</span>{% endif %}
+      </div>
+      {% if s.label != s.command %}<div class="mono wt-facts muted">$ {{ s.command }}</div>{% endif %}
+      <div class="wt-facts muted">
+        {% if s.enabled and s.next_run_at %}Next: {{ s.next_run_at | localtime }}{% elif not s.enabled %}Paused{% endif %}
+        {% if s.last_run_at %} · Last: {{ s.last_run_at | localtime }}
+          {% if s.running %}(running — <span class="mono">tmux attach -t {{ s.session }}</span>)
+          {% elif s.last_note %}<span class="sched-bad">({{ s.last_note }})</span>
+          {% elif s.last_exit == 0 %}<span class="sched-ok">(ok)</span>
+          {% elif s.last_exit is not none %}<span class="sched-bad">(exit {{ s.last_exit }})</span>{% endif %}
+        {% endif %}
+      </div>
+      {% if s.last_log %}
+      <details class="sched-log">
+        <summary>Last run's output</summary>
+        <div hx-get="/instances/{{ i.id }}/schedules/{{ s.id }}/log" hx-trigger="toggle from:closest details" hx-swap="innerHTML">
+          <p class="muted">Loading…</p>
+        </div>
+        {% set files_url = browse_url(s.last_log.rsplit('/', 1)[0]) %}
+        {% if files_url %}<a class="details-link" href="{{ files_url }}">All recent logs</a>{% endif %}
+      </details>
+      {% endif %}
+    </div>
+    <div class="sched-actions">
+      {% if not s.running %}
+      <button class="secondary" hx-post="/instances/{{ i.id }}/schedules/{{ s.id }}/run" hx-target="#schedules" hx-swap="innerHTML">Run now</button>
+      {% endif %}
+      <form hx-post="/instances/{{ i.id }}/schedules/{{ s.id }}/enabled" hx-target="#schedules" hx-swap="innerHTML">
+        <input type="hidden" name="enabled" value="{{ '0' if s.enabled else '1' }}">
+        <button class="secondary" type="submit">{{ "Pause" if s.enabled else "Resume" }}</button>
+      </form>
+      <form hx-post="/instances/{{ i.id }}/schedules/{{ s.id }}/delete" hx-target="#schedules" hx-swap="innerHTML"
+            hx-confirm="Delete schedule '{{ s.label }}'?{% if s.running %} Its current run is stopped too.{% endif %}">
+        <button class="cleanup" type="submit">Delete</button>
+      </form>
+    </div>
+  </li>
+  {% endfor %}
+</ul>
+{% else %}
+<p class="muted">No scheduled runs.</p>
+{% endif %}

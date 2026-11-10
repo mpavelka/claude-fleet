@@ -363,8 +363,8 @@ a.file-name:hover { color: var(--accent); }
 }
 
 /* Sessions & worktrees (detail page) + card summary */
-.detail-worktrees, .detail-prs { margin-bottom: 1.5rem; }
-.detail-worktrees h2, .detail-prs h2 { font-size: 1.05rem; margin: 0 0 .5rem; }
+.detail-worktrees, .detail-prs, .detail-schedules { margin-bottom: 1.5rem; }
+.detail-worktrees h2, .detail-prs h2, .detail-schedules h2 { font-size: 1.05rem; margin: 0 0 .5rem; }
 .notice {
   background: rgba(63, 185, 80, .1);
   border: 1px solid var(--green);
@@ -402,3 +402,31 @@ a.file-name:hover { color: var(--accent); }
 .pr-open { color: var(--green); border-color: var(--green); }
 .pr-merged { color: #a371f7; border-color: #a371f7; }
 .pr-closed { color: var(--red); border-color: var(--red); }
+
+/* Scheduled runs (detail page) */
+.detail-schedules > p { font-size: .85rem; margin: 0 0 .6rem; }
+.sched-active .dot { background: var(--green); box-shadow: 0 0 6px var(--green); }
+.sched-clean .dot { background: var(--accent); }
+.sched-fail .dot { background: var(--red); }
+.sched-off .dot { background: var(--muted); opacity: .5; }
+.sched-cron { color: var(--muted); }
+.sched-ok { color: var(--green); }
+.sched-bad { color: var(--amber); }
+.sched-actions { display: flex; gap: .5rem; flex-wrap: wrap; align-items: center; }
+.sched-actions form { margin: 0; }
+.sched-actions button { padding: .35rem .7rem; font-size: .82rem; }
+.sched-log { margin-top: .3rem; font-size: .8rem; }
+.sched-log summary { cursor: pointer; color: var(--accent); }
+.sched-log pre.log { max-height: 24rem; }
+.sched-new { margin-top: .75rem; }
+.sched-form { display: flex; gap: .5rem; flex-wrap: wrap; align-items: flex-end; margin: .6rem 0; }
+.sched-form label { display: flex; flex-direction: column; gap: .2rem; font-size: .78rem; color: var(--muted); }
+.sched-form input {
+  background: var(--panel); border: 1px solid var(--border); color: var(--text);
+  padding: .5rem .65rem; border-radius: 8px; min-width: 10rem;
+}
+.sched-form label:nth-child(2) input { min-width: 18rem; }
+@media (max-width: 640px) {
+  .wt:has(.sched-actions) { flex-wrap: wrap; }
+  .sched-form label, .sched-form input, .sched-form label:nth-child(2) input { min-width: 0; width: 100%; }
+}

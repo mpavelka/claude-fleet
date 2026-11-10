@@ -67,6 +67,27 @@ def init() -> None:
         # from before this column) means "follow CLAUDE_RC_SPAWN_MODE".
         if "spawn_mode" not in cols:
             c.execute("ALTER TABLE instances ADD COLUMN spawn_mode TEXT")
+        # Scheduled runs (see scheduler.py). Times are ISO UTC. last_exit is
+        # NULL while a run is going (or when it never started -- last_note
+        # then says why).
+        c.execute(
+            """
+            CREATE TABLE IF NOT EXISTS schedules (
+                id           TEXT PRIMARY KEY,
+                instance_id  TEXT NOT NULL,
+                label        TEXT NOT NULL,
+                cron         TEXT NOT NULL,
+                command      TEXT NOT NULL,
+                enabled      INTEGER NOT NULL DEFAULT 1,
+                next_run_at  TEXT,
+                last_run_at  TEXT,
+                last_log     TEXT,
+                last_exit    INTEGER,
+                last_note    TEXT,
+                created_at   TEXT NOT NULL
+            )
+            """
+        )
 
 
 def add_instance(iid, name, repo_url, workdir, tmux_session, credential_id=None,
@@ -182,3 +203,51 @@ def set_instance_credential(iid, credential_id) -> None:
             "UPDATE instances SET credential_id = ? WHERE id = ?",
             (credential_id, iid),
         )
+
+
+# --------------------------------------------------------------------------- #
+# Schedules (see scheduler.py)
+# --------------------------------------------------------------------------- #
+_SCHEDULE_FIELDS = {"enabled", "next_run_at", "last_run_at", "last_log", "last_exit", "last_note"}
+
+
+def add_schedule(sid, instance_id, label, cron, command, next_run_at) -> None:
+    with _connect() as c:
+        c.execute(
+            "INSERT INTO schedules "
+            "(id, instance_id, label, cron, command, enabled, next_run_at, created_at) "
+            "VALUES (?, ?, ?, ?, ?, 1, ?, ?)",
+            (sid, instance_id, label, cron, command, next_run_at, _now()),
+        )
+
+
+def all_schedules() -> list[sqlite3.Row]:
+    with _connect() as c:
+        return c.execute("SELECT * FROM schedules ORDER BY created_at").fetchall()
+
+
+def schedules_for(instance_id) -> list[sqlite3.Row]:
+    with _connect() as c:
+        return c.execute(
+            "SELECT * FROM schedules WHERE instance_id = ? ORDER BY created_at",
+            (instance_id,),
+        ).fetchall()
+
+
+def get_schedule(sid) -> sqlite3.Row | None:
+    with _connect() as c:
+        return c.execute("SELECT * FROM schedules WHERE id = ?", (sid,)).fetchone()
+
+
+def update_schedule(sid, **fields) -> None:
+    unknown = set(fields) - _SCHEDULE_FIELDS
+    if unknown:
+        raise ValueError(f"unknown schedule fields: {unknown}")
+    cols = ", ".join(f"{k} = ?" for k in fields)
+    with _connect() as c:
+        c.execute(f"UPDATE schedules SET {cols} WHERE id = ?", (*fields.values(), sid))
+
+
+def delete_schedule(sid) -> None:
+    with _connect() as c:
+        c.execute("DELETE FROM schedules WHERE id = ?", (sid,))

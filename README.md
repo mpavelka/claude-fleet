@@ -46,6 +46,10 @@ or in the Claude app.
   requests** button on the detail page lists every PR of the instance's
   sessions, which also covers removed worktrees and same-dir instances. PRs
   get open/merged/closed state on instances with a GitHub credential.
+- **Scheduled runs** — cron-style commands per instance (e.g.
+  `bin/scheduled-run job-scan` at `40 7 * * *`), managed on its detail page:
+  run now, pause, see the last run's exit code and output. See
+  [Scheduled runs](#scheduled-runs).
 - **Spawn mode per instance** — the spawn form can pin an instance to
   `worktree`, `same-dir` or `session` mode; left at default it follows
   `CLAUDE_RC_SPAWN_MODE`.
@@ -241,6 +245,7 @@ same whether set in the environment or the file:
 | `DOCKER_TLS_VERIFY`| _(unset)_                        | Passed through to spawned sessions alongside `DOCKER_HOST`     |
 | `DOCKER_CERT_PATH` | _(unset)_                        | Passed through to spawned sessions alongside `DOCKER_HOST`     |
 | `FLEET_BROWSE_ROOTS` | `/tmp`, `FLEET_ROOT`          | Comma-separated folders the *Files* browser can read; set to empty to disable |
+| `FLEET_TIMEZONE`   | _(server local zone)_            | IANA zone (e.g. `Europe/Prague`) scheduled runs' cron expressions are evaluated in |
 | `FLEET_ENVIRONMENT_BRIEFING` | _(unset)_               | Markdown briefed into every spawned instance — see **Environment briefing** below |
 
 ## Environment briefing
@@ -346,12 +351,62 @@ confirmation. Worktrees you created yourself and hand-set locks are never
 touched. Transcripts are kept, so ended sessions stay in the app and their PRs
 stay listed.
 
+## Scheduled runs
+
+Each instance can have any number of schedules: a cron expression plus a shell
+command run from the root of the instance's clone — for a repo that ships its
+own unattended entry point, like
+[job-hunt-workspace](https://github.com/mpavelka/job-hunt-workspace)'s
+`bin/scheduled-run`, that's just `bin/scheduled-run job-scan`. Add them under
+*Scheduled runs* on the instance's detail page.
+
+**One scheduler for the app, schedules per instance.** There is no crontab
+and no cron daemon: a single thread in the dashboard process (like the
+worktree sweeper) checks every 30s for due schedules, which are rows in the
+same SQLite DB as the instances. That's deliberate:
+
+- the container runs one non-root process; a cron daemon would need root and
+  a process supervisor, and a K8s CronJob would need its own pod mounting the
+  same volume and Claude login;
+- a run needs the instance's environment — its git credential, `gh` config
+  and Docker access — which the app already knows how to set up and a crontab
+  line wouldn't;
+- schedules follow the instance's lifecycle (cleaning up the working tree
+  deletes them; nothing is left pointing at a deleted directory), and the UI
+  can show what's due, what's running and how the last run went.
+
+How a run works:
+
+- It's a detached tmux session `fleet-run-<schedule id>` in the clone, so
+  `tmux attach -t fleet-run-<id>` shows it live. It doesn't need the
+  instance's remote-control session to be running.
+- `claude -p` inside it uses the server-wide Claude login, and the clone is
+  already trusted, so headless runs need no extra token.
+- Output goes to `<clone>/.git/fleet-runs/<schedule id>/<timestamp>.log` (the
+  last 20 per schedule): under `.git` so it never shows in `git status`,
+  readable from the detail page or the Files browser.
+- A schedule whose previous run is still going is skipped, not queued. A run
+  missed while the dashboard was down fires once when it's back (several
+  missed runs collapse into one). Re-enabling a paused schedule doesn't catch
+  up.
+- Cron expressions are standard 5-field (or `@hourly`, `@daily`, …), in
+  `FLEET_TIMEZONE`, DST-aware.
+
+In worktree mode (the default) sessions work in their own worktrees, so the
+clone's root is free for scheduled runs. In `same-dir`/`session` mode they
+share it with the interactive sessions; the detail page warns about that.
+
+Files a repo keeps out of git (e.g. a `.env` with notification settings) are
+not in the clone. Until there's a way to set them per instance, pass them on
+the command line (`NOTIFY_NTFY_TOPIC=... bin/scheduled-run job-scan`) — note
+the command is stored and shown in plain text.
+
 ## How state is modeled
 
 The UI reconciles three sources on every refresh:
 
 - **SQLite** — the mapping of instance id → repo, working tree, tmux session,
-  relay URL, credential and spawn mode.
+  relay URL, credential and spawn mode, plus each instance's schedules.
 - **tmux** — `tmux has-session` decides running vs stopped.
 - **Filesystem** — directories under `FLEET_ROOT` with no DB row show up as
   untracked orphans.
