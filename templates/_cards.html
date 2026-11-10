@@ -29,6 +29,15 @@
     </div>
     {% endif %}
 
+    {% set sched = schedule_summary(i.id) if i.tracked else none %}
+    {% if sched %}
+    <div class="wt-summary">
+      ⏱ {{ sched.total }} schedule{{ "" if sched.total == 1 else "s" }}
+      {%- if sched.next_run_at %} · next {{ sched.next_run_at | localtime }}{% elif not sched.enabled %} · paused{% endif %}
+      {%- if sched.failed %} · <span class="wt-work">last run failed</span>{% endif %}
+    </div>
+    {% endif %}
+
     {# The session is listed by name at claude.ai/code and in the Claude app, so
        the card only needs to say whether remote-control has registered (i.e.
        the relay URL has been scraped); the full URL lives on the detail page. #}

@@ -11,7 +11,9 @@ active `Settings` instance by `load()`, so anything that reads them at call time
 picks up the loaded config. Do NOT read them at import time in other modules.
 """
 import os
+from datetime import datetime, tzinfo
 from typing import Literal
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -80,6 +82,10 @@ class Settings(BaseSettings):
     # and download from. Unset -> /tmp plus FLEET_ROOT; set to "" to disable.
     browse_roots: str | None = Field(default=None, validation_alias="FLEET_BROWSE_ROOTS")
 
+    # Time zone scheduled runs' cron expressions are evaluated in (IANA name,
+    # e.g. Europe/Prague). Unset -> the server's local zone (UTC in the image).
+    timezone: str | None = Field(default=None, validation_alias="FLEET_TIMEZONE")
+
     # Server
     host: str = Field(default="127.0.0.1", validation_alias="FLEET_HOST")
     port: int = Field(default=8700, validation_alias="FLEET_PORT")
@@ -91,6 +97,17 @@ class Settings(BaseSettings):
     docker_host: str | None = Field(default=None, validation_alias="DOCKER_HOST")
     docker_tls_verify: str | None = Field(default=None, validation_alias="DOCKER_TLS_VERIFY")
     docker_cert_path: str | None = Field(default=None, validation_alias="DOCKER_CERT_PATH")
+
+    @field_validator("timezone")
+    @classmethod
+    def _zone(cls, v: str | None) -> str | None:
+        if v and v.strip():
+            try:
+                ZoneInfo(v.strip())
+            except (ZoneInfoNotFoundError, ValueError):
+                raise ValueError(f"unknown time zone '{v}' (use an IANA name like Europe/Prague)")
+            return v.strip()
+        return None
 
     @field_validator("root", "db_path", "secrets_root")
     @classmethod
@@ -112,6 +129,7 @@ WORKTREE_SWEEP_MINUTES: float
 RELAY_REGEX: str
 ENVIRONMENT_BRIEFING: str | None
 BROWSE_ROOTS: list[str]
+TIMEZONE: tzinfo
 HOST: str
 PORT: int
 DOCKER_HOST: str | None
@@ -125,6 +143,12 @@ def _browse_roots(s: Settings) -> list[str]:
     else:
         raw = [p.strip() for p in s.browse_roots.split(",") if p.strip()]
     return [os.path.abspath(os.path.expanduser(p)) for p in raw]
+
+
+def _timezone(s: Settings) -> tzinfo:
+    if s.timezone:
+        return ZoneInfo(s.timezone)
+    return datetime.now().astimezone().tzinfo
 
 
 def load(config_path: str | None = None) -> Settings:
@@ -148,6 +172,7 @@ def load(config_path: str | None = None) -> Settings:
         RELAY_REGEX=settings.relay_regex,
         ENVIRONMENT_BRIEFING=settings.environment_briefing,
         BROWSE_ROOTS=_browse_roots(settings),
+        TIMEZONE=_timezone(settings),
         HOST=settings.host,
         PORT=settings.port,
         DOCKER_HOST=settings.docker_host,
