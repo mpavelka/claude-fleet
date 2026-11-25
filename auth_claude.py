@@ -28,7 +28,32 @@ def _login_log() -> str:
     return os.path.join(os.path.dirname(config.DB_PATH), "claude-login.log")
 
 # The authorize URL claude prints (and any hosted-callback variant).
-_AUTHORIZE_RE = re.compile(r"https://\S*oauth/authorize\S*")
+# Restricted to RFC 3986 characters so a match stops at terminal escape bytes
+# (BEL, ESC), which `\S` would happily swallow.
+_URL_CHARS = r"[A-Za-z0-9\-._~:/?#\[\]@!$&'()*+,;=%]"
+_AUTHORIZE_RE = re.compile(rf"https://{_URL_CHARS}*oauth/authorize{_URL_CHARS}*")
+
+# Newer CLIs print the URL as an OSC 8 hyperlink: ESC ] 8 ; params ; URL ST,
+# where ST is BEL or ESC \. Capture its target...
+_OSC8_RE = re.compile(r"\x1b\]8;[^;\x07\x1b]*;([^\x07\x1b]*)(?:\x07|\x1b\\)")
+# ...and strip every other escape sequence (OSC, CSI, two-byte ESC) from the
+# visible text.
+_ESCAPE_RE = re.compile(
+    r"\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)"  # OSC ... BEL/ST
+    r"|\x1b\[[0-?]*[ -/]*[@-~]"           # CSI (colors, cursor moves)
+    r"|\x1b[@-Z\\-_]"                     # other two-byte escapes
+)
+
+
+def _find_authorize_url(text: str) -> str | None:
+    """Find the authorize URL in raw terminal output. Prefers an OSC 8
+    hyperlink target and falls back to the visible text with escapes removed."""
+    for target in _OSC8_RE.findall(text):
+        m = _AUTHORIZE_RE.fullmatch(target.strip())
+        if m:
+            return m.group(0)
+    m = _AUTHORIZE_RE.search(_ESCAPE_RE.sub("", text))
+    return m.group(0) if m else None
 
 
 # --------------------------------------------------------------------------- #
@@ -65,8 +90,7 @@ def login_url() -> str | None:
         text = open(log, "r", errors="replace").read()
     except OSError:
         return None
-    m = _AUTHORIZE_RE.search(text)
-    return m.group(0).strip() if m else None
+    return _find_authorize_url(text)
 
 
 def login_state(error: str | None = None) -> dict:
