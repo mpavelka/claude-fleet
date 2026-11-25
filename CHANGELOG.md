@@ -6,6 +6,18 @@ section below is generated automatically (from merged PRs) when a
 
 ## [Unreleased]
 
+## v0.0.13 - 2026-11-25
+
+<!-- Release notes generated using configuration in .github/release.yml at v0.0.13 -->
+
+## What's Changed
+### Bug Fixes
+* Fix Claude login: strip terminal escape codes from scraped authorize URL by @mpavelka in https://github.com/mpavelka/claude-fleet/pull/29
+
+
+**Full Changelog**: https://github.com/mpavelka/claude-fleet/compare/v0.0.12...v0.0.13
+
+
 ## v0.0.12 - 2026-11-10
 
 <!-- Release notes generated using configuration in .github/release.yml at v0.0.12 -->
